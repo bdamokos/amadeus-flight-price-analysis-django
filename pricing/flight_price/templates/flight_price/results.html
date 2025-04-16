@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} &#x2708 Multiple Destinations <br>{{ departure_date }}
+<h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} &#x2708 {% if all_results|length > 1 %}Multiple Destinations{% else %}{{ all_results.0.destination }}{% endif %} <br>{{ departure_date }}
 {% if return_date %} <span class="text-info">&#10594&#10596</span> {{ return_date }}{% endif %}</h3>
 
 {% if all_results|length > 1 %}
