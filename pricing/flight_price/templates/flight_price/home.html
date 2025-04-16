@@ -12,7 +12,16 @@
         <script>
             $(document).ready(function () {
                 $("#inputOrigin").autocomplete({
-                    source: "{% url 'origin_airport_search'%}",
+                    source: function(request, response) {
+                        $.ajax({
+                            url: "{% url 'origin_airport_search'%}",
+                            data: { term: request.term },
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            success: function(data) {
+                                response($.parseJSON(data));
+                            }
+                        });
+                    },
                     minLength: 1,
                     delay: 200,
                 });
@@ -21,7 +30,16 @@
         <script>
             $(document).ready(function () {
                 $("#inputDestination").autocomplete({
-                    source: "{% url 'destination_airport_search'%}",
+                    source: function(request, response) {
+                        $.ajax({
+                            url: "{% url 'destination_airport_search'%}",
+                            data: { term: request.term },
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            success: function(data) {
+                                response($.parseJSON(data));
+                            }
+                        });
+                    },
                     minLength: 1,
                     delay: 200,
                 });

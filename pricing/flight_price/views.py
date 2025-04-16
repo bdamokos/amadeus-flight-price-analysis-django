@@ -135,23 +135,27 @@ def is_cheapest_flight_out_of_range(cheapest_flight_price, metrics):
 
 
 def origin_airport_search(request):
-    if request.is_ajax():
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         try:
             data = amadeus.reference_data.locations.get(keyword=request.GET.get('term', None),
                                                         subType=Location.ANY).data
+            return HttpResponse(get_city_airport_list(data), 'application/json')
         except ResponseError as error:
             messages.add_message(request, messages.ERROR, error.response.result['errors'][0]['detail'])
-    return HttpResponse(get_city_airport_list(data), 'application/json')
+            return HttpResponse(json.dumps([]), 'application/json')
+    return HttpResponse(json.dumps([]), 'application/json')
 
 
 def destination_airport_search(request):
-    if request.is_ajax():
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         try:
             data = amadeus.reference_data.locations.get(keyword=request.GET.get('term', None),
                                                         subType=Location.ANY).data
+            return HttpResponse(get_city_airport_list(data), 'application/json')
         except ResponseError as error:
             messages.add_message(request, messages.ERROR, error.response.result['errors'][0]['detail'])
-    return HttpResponse(get_city_airport_list(data), 'application/json')
+            return HttpResponse(json.dumps([]), 'application/json')
+    return HttpResponse(json.dumps([]), 'application/json')
 
 
 def get_city_airport_list(data):
