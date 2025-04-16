@@ -12,18 +12,13 @@
         <script>
             $(document).ready(function () {
                 $("#inputOrigin").autocomplete({
-                    source: function(request, response) {
-                        $.ajax({
-                            url: "{% url 'origin_airport_search'%}",
-                            data: { term: request.term },
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                            success: function(data) {
-                                response($.parseJSON(data));
-                            }
-                        });
-                    },
+                    source: "{% url 'origin_airport_search'%}",
                     minLength: 1,
                     delay: 200,
+                    select: function(event, ui) {
+                        $(this).val(ui.item.label);
+                        return false;
+                    }
                 });
             });
         </script>
@@ -42,6 +37,10 @@
                     },
                     minLength: 1,
                     delay: 200,
+                    select: function(event, ui) {
+                        $(this).val(ui.item.label);
+                        return false;
+                    }
                 });
             });
         </script>

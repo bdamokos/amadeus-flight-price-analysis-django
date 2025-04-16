@@ -161,6 +161,9 @@ def destination_airport_search(request):
 def get_city_airport_list(data):
     result = []
     for i, val in enumerate(data):
-        result.append(data[i]['iataCode'] + ', ' + data[i]['name'])
-    result = list(dict.fromkeys(result))
+        result.append({
+            'label': f"{data[i]['iataCode']}, {data[i]['name']}",
+            'value': data[i]['iataCode']
+        })
+    result = list({v['value']: v for v in result}.values())  # Remove duplicates based on value
     return json.dumps(result)
