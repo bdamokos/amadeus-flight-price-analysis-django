@@ -15,6 +15,46 @@
 <h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} &#x2708 Multiple Destinations <br>{{ departure_date }}
 {% if return_date %} <span class="text-info">&#10594&#10596</span> {{ return_date }}{% endif %}</h3>
 
+{% if all_results|length > 1 %}
+<div class="container mb-5">
+    <h4 class="login-heading mb-4">Summary of Cheapest Flights</h4>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Destination</th>
+                    <th>Price</th>
+                    <th>Deal Rating</th>
+                    {% if return_date %}
+                    <th>Type</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in all_results|dictsort:"cheapest_flight" %}
+                <tr>
+                    <td>{{ result.destination }}</td>
+                    <td>${{ result.cheapest_flight }}</td>
+                    <td>
+                        {% if result.is_good_deal == 'A GOOD DEAL' %}
+                            <span class="badge badge-success">{{ result.is_good_deal }}</span>
+                        {% elif result.is_good_deal == 'HIGH' %}
+                            <span class="badge badge-danger">{{ result.is_good_deal }}</span>
+                        {% else %}
+                            <span class="badge badge-warning">{{ result.is_good_deal }}</span>
+                        {% endif %}
+                    </td>
+                    {% if return_date %}
+                    <td>Return</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <div class="modal-body row">
     {% for result in all_results %}
     <div class="col-md-12 mb-5">
