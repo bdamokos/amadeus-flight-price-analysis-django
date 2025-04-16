@@ -11,54 +11,77 @@ amadeus = Client()
 
 
 def flight_offers(request):
+    if request.method == 'GET':
+        return render(request, 'flight_price/home.html')
+        
     origin = request.POST.get('Origin')
-    destination = request.POST.get('Destination')
+    destinations = request.POST.getlist('Destination')
     departure_date = request.POST.get('Departuredate')
     return_date = request.POST.get('Returndate')
 
-    kwargs = {'originLocationCode': origin,
-              'destinationLocationCode': destination,
-              'departureDate': departure_date,
-              'adults': 1
-              }
+    if not origin or not destinations or not departure_date:
+        messages.error(request, 'Please fill in all required fields')
+        return render(request, 'flight_price/home.html')
 
-    kwargs_metrics = {'originIataCode': origin,
-                      'destinationIataCode': destination,
-                      'departureDate': departure_date
-                      }
-    trip_purpose = ''
+    all_results = []
+    trip_purposes = {}
+    metrics = {}
+    cheapest_flights = {}
+    is_good_deals = {}
+
     try:
-        if return_date:
-            kwargs['returnDate'] = return_date
-            kwargs_trip_purpose = {'originLocationCode': origin,
-                                   'destinationLocationCode': destination,
-                                   'departureDate': departure_date,
-                                   'returnDate': return_date
-                                   }
+        for destination in destinations:
+            kwargs = {'originLocationCode': origin,
+                     'destinationLocationCode': destination,
+                     'departureDate': departure_date,
+                     'adults': 1
+                     }
 
-            trip_purpose = get_trip_purpose(**kwargs_trip_purpose)
-        else:
-            kwargs_metrics['oneWay'] = 'true'
+            kwargs_metrics = {'originIataCode': origin,
+                            'destinationIataCode': destination,
+                            'departureDate': departure_date
+                            }
 
-        if origin and destination and departure_date:
-            flight_offers = get_flight_offers(**kwargs)
-            metrics = get_flight_price_metrics(**kwargs_metrics)
-            cheapest_flight = get_cheapest_flight_price(flight_offers)
-            is_good_deal = ''
-            if metrics is not None:
-                is_good_deal = rank_cheapest_flight(cheapest_flight, metrics['first'], metrics['third'])
-                is_cheapest_flight_out_of_range(cheapest_flight, metrics)
+            if return_date:
+                kwargs['returnDate'] = return_date
+                kwargs_trip_purpose = {'originLocationCode': origin,
+                                     'destinationLocationCode': destination,
+                                     'departureDate': departure_date,
+                                     'returnDate': return_date
+                                     }
+                trip_purposes[destination] = get_trip_purpose(**kwargs_trip_purpose)
+            else:
+                kwargs_metrics['oneWay'] = 'true'
 
-            return render(request, 'flight_price/results.html', {'flight_offers': flight_offers,
-                                                                 'origin': origin,
-                                                                 'destination': destination,
-                                                                 'departure_date': departure_date,
-                                                                 'return_date': return_date,
-                                                                 'trip_purpose': trip_purpose,
-                                                                 'metrics': metrics,
-                                                                 'cheapest_flight': cheapest_flight,
-                                                                 'is_good_deal': is_good_deal
-                                                                })
+            if origin and destination and departure_date:
+                flight_offers = get_flight_offers(**kwargs)
+                metrics[destination] = get_flight_price_metrics(**kwargs_metrics)
+                cheapest_flights[destination] = get_cheapest_flight_price(flight_offers)
+                
+                if metrics[destination] is not None:
+                    is_good_deals[destination] = rank_cheapest_flight(
+                        cheapest_flights[destination], 
+                        metrics[destination]['first'], 
+                        metrics[destination]['third']
+                    )
+                    is_cheapest_flight_out_of_range(cheapest_flights[destination], metrics[destination])
+
+                all_results.append({
+                    'flight_offers': flight_offers,
+                    'destination': destination,
+                    'metrics': metrics[destination],
+                    'cheapest_flight': cheapest_flights[destination],
+                    'is_good_deal': is_good_deals.get(destination, ''),
+                    'trip_purpose': trip_purposes.get(destination, '')
+                })
+
+        return render(request, 'flight_price/results.html', {
+            'all_results': all_results,
+            'origin': origin,
+            'departure_date': departure_date,
+            'return_date': return_date
+        })
+
     except ResponseError as error:
         messages.add_message(request, messages.ERROR, error.response.result['errors'][0]['detail'])
         return render(request, 'flight_price/home.html', {})
