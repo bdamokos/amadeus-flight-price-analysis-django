@@ -34,7 +34,7 @@
                 {% for result in all_results|dictsort:"cheapest_flight" %}
                 <tr>
                     <td>{{ result.destination }}</td>
-                    <td>${{ result.cheapest_flight }}</td>
+                    <td>{% if currency == 'EUR' %}€{% else %}${% endif %}{{ result.cheapest_flight }}</td>
                     <td>
                         {% if result.is_good_deal == 'A GOOD DEAL' %}
                             <span class="badge badge-success">{{ result.is_good_deal }}</span>
@@ -69,7 +69,7 @@
                 {% for r in result.flight_offers %}
                     {% if r.0firstFlightDepartureDate %}
                         <div class="card mb-6 text-center" style="max-width: 40rem;">
-                            <div class="nounderline card-header text-center" style="font-size: 26;color: darkred;">${{ r.price }}
+                            <div class="nounderline card-header text-center" style="font-size: 26;color: darkred;">{% if currency == 'EUR' %}€{% else %}${% endif %}{{ r.price }}
                             </div>
                             <div class="card-body">
                                 <div class="card-text">
@@ -102,7 +102,7 @@
                 <h4 class="login-heading mb-4 text-left">PRICE ANALYSIS</h4>
                 {% if result.metrics %}
                      <p>The cheapest available flight is <span class="text-info">{{ result.is_good_deal }}</span></p>
-                     <p>The least expensive flights usually cost between ${{ result.metrics.first }} - {{ result.metrics.third }} </p>
+                     <p>The least expensive flights usually cost between {% if currency == 'EUR' %}€{% else %}${% endif %}{{ result.metrics.first }} - {% if currency == 'EUR' %}€{% else %}${% endif %}{{ result.metrics.third }} </p>
                     <div class="pb-5"></div>
                     <div id="range-bar-{{ forloop.counter }}"></div>
                 {% else %}
@@ -137,13 +137,13 @@
         tooltips: [true, true],
         connect: [true, true, true],
         format: wNumb({ decimals: 2,
-                        prefix: '$' }),
+                        prefix: '{% if currency == "EUR" %}€{% else %}${% endif %}' }),
         pips: {
             mode: 'values',
             values: [{{ result.cheapest_flight }}],
             density: 6,
             format: wNumb({ decimals: 2,
-                            prefix: '$' }),
+                            prefix: '{% if currency == "EUR" %}€{% else %}${% endif %}' }),
         },
         range: {
             'min': {{ result.metrics.min }},

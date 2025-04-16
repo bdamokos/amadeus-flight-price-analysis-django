@@ -18,6 +18,7 @@ def flight_offers(request):
     destinations = request.POST.getlist('Destination')
     departure_date = request.POST.get('Departuredate')
     return_date = request.POST.get('Returndate')
+    currency = request.POST.get('Currency', 'USD')  # Default to USD if not specified
 
     if not origin or not destinations or not departure_date:
         messages.error(request, 'Please fill in all required fields')
@@ -34,12 +35,14 @@ def flight_offers(request):
             kwargs = {'originLocationCode': origin,
                      'destinationLocationCode': destination,
                      'departureDate': departure_date,
-                     'adults': 1
+                     'adults': 1,
+                     'currencyCode': currency
                      }
 
             kwargs_metrics = {'originIataCode': origin,
                             'destinationIataCode': destination,
-                            'departureDate': departure_date
+                            'departureDate': departure_date,
+                            'currencyCode': currency
                             }
 
             if return_date:
@@ -79,7 +82,8 @@ def flight_offers(request):
             'all_results': all_results,
             'origin': origin,
             'departure_date': departure_date,
-            'return_date': return_date
+            'return_date': return_date,
+            'currency': currency
         })
 
     except ResponseError as error:
@@ -98,7 +102,6 @@ def get_flight_offers(**kwargs):
 
 
 def get_flight_price_metrics(**kwargs_metrics):
-    kwargs_metrics['currencyCode'] = 'USD'
     metrics = amadeus.analytics.itinerary_price_metrics.get(**kwargs_metrics)
     return Metrics(metrics.data).construct_metrics()
 
