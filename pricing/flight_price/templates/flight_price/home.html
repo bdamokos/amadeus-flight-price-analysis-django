@@ -81,6 +81,7 @@
                           </div>
                           
                           <button type="button" id="addDestination" class="btn btn-secondary mb-3">Add Another Destination</button>
+                          <button type="button" id="addSouthAmericaAirports" class="btn btn-info mb-3 ml-2">Add All South American Airports</button>
 
                           <div class="form-label-group">
                               <input type="date" name="Departuredate" id="idDeparturedate"
@@ -141,6 +142,62 @@
                         source: "{% url 'destination_airport_search'%}",
                         minLength: 1,
                         delay: 200,
+                    });
+                });
+                
+                $("#addSouthAmericaAirports").click(function() {
+                    // Clear existing destination fields except the first one
+                    $("#destination-container .destination-group:not(:first)").remove();
+                    destinationCount = 1;
+                    
+                    // Make AJAX request to get South American airports
+                    $.ajax({
+                        url: "{% url 'add_south_america_airports' %}",
+                        type: "POST",
+                        headers: {
+                            'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                // Clear the first destination field
+                                $("#inputDestination").val('');
+                                
+                                // Add all South American airports as destination fields
+                                response.airports.forEach(function(airport, index) {
+                                    if (index === 0) {
+                                        // Use the first destination field
+                                        $("#inputDestination").val(airport.code + ", " + airport.name);
+                                    } else {
+                                        // Add new destination fields for the rest
+                                        destinationCount++;
+                                        const newDestination = `
+                                            <div class="form-label-group destination-group">
+                                                <input type="text" name="Destination" id="inputDestination${destinationCount}"
+                                                       class="form-control destination-input" placeholder="To" required
+                                                       value="${airport.code}, ${airport.name}">
+                                                <label for="inputDestination${destinationCount}">To</label>
+                                            </div>
+                                        `;
+                                        $("#destination-container").append(newDestination);
+                                        
+                                        // Initialize autocomplete for the new destination field
+                                        $(`#inputDestination${destinationCount}`).autocomplete({
+                                            source: "{% url 'destination_airport_search'%}",
+                                            minLength: 1,
+                                            delay: 200,
+                                        });
+                                    }
+                                });
+                                
+                                alert(response.message);
+                            } else {
+                                alert('Error: ' + response.message);
+                            }
+                        },
+                        error: function() {
+                            alert('Error loading South American airports. Please try again.');
+                        }
                     });
                 });
             });

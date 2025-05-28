@@ -24,6 +24,7 @@ set:
 ```sh
 export AMADEUS_CLIENT_ID=YOUR_API_KEY
 export AMADEUS_CLIENT_SECRET=YOUR_API_SECRET
+export AMADEUS_HOSTNAME="test" or "production"
 export DEBUG_VALUE="True"
 ```
 
@@ -65,7 +66,25 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-For authentication add your API key/secret to your environmental variables.
+### Environment Variables Setup
+
+The application now supports automatic loading of environment variables from a `.env` file. This is the recommended approach for local development.
+
+1. Copy the example environment file:
+```sh
+cp env.example .env
+```
+
+2. Edit the `.env` file with your actual Amadeus API credentials:
+```sh
+# Get your API credentials from https://developers.amadeus.com/
+AMADEUS_CLIENT_ID=your_actual_api_key
+AMADEUS_CLIENT_SECRET=your_actual_api_secret
+AMADEUS_HOSTNAME=test  # or "production"
+DEBUG_VALUE=True
+```
+
+Alternatively, you can still set environment variables manually:
 
 ```sh
 export AMADEUS_CLIENT_ID=YOUR_API_KEY

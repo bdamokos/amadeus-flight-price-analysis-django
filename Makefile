@@ -1,3 +1,9 @@
+# Load environment variables from .env file if it exists
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 PORTS = -p 8000:8000
 ENV = \
   -e AMADEUS_CLIENT_ID=${AMADEUS_CLIENT_ID} \

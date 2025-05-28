@@ -208,3 +208,57 @@ def get_city_airport_list(data):
         })
     result = list({v['value']: v for v in result}.values())  # Remove duplicates based on value
     return json.dumps(result)
+
+
+def add_south_america_airports(request):
+    """Add all major South American airports as destinations"""
+    if request.method == 'POST':
+        # Major South American airports with their IATA codes and cities
+        south_america_airports = [
+            {'code': 'GRU', 'name': 'São Paulo–Guarulhos International Airport', 'city': 'São Paulo, Brazil'},
+            {'code': 'BOG', 'name': 'El Dorado International Airport', 'city': 'Bogotá, Colombia'},
+            {'code': 'LIM', 'name': 'Jorge Chávez International Airport', 'city': 'Lima, Peru'},
+            {'code': 'SCL', 'name': 'Arturo Merino Benítez International Airport', 'city': 'Santiago, Chile'},
+            {'code': 'CGH', 'name': 'São Paulo–Congonhas Airport', 'city': 'São Paulo, Brazil'},
+            {'code': 'BSB', 'name': 'Brasília International Airport', 'city': 'Brasília, Brazil'},
+            {'code': 'MDE', 'name': 'José María Córdova International Airport', 'city': 'Medellín, Colombia'},
+            {'code': 'AEP', 'name': 'Aeroparque Jorge Newbery', 'city': 'Buenos Aires, Argentina'},
+            {'code': 'VCP', 'name': 'Viracopos International Airport', 'city': 'Campinas, Brazil'},
+            {'code': 'SDU', 'name': 'Santos Dumont Airport', 'city': 'Rio de Janeiro, Brazil'},
+            {'code': 'CNF', 'name': 'Belo Horizonte International Airport', 'city': 'Belo Horizonte, Brazil'},
+            {'code': 'REC', 'name': 'Recife/Guararapes–Gilberto Freyre International Airport', 'city': 'Recife, Brazil'},
+            {'code': 'CCS', 'name': 'Simón Bolívar International Airport', 'city': 'Caracas, Venezuela'},
+            {'code': 'CLO', 'name': 'Alfonso Bonilla Aragón International Airport', 'city': 'Cali, Colombia'},
+            {'code': 'CTG', 'name': 'Rafael Núñez International Airport', 'city': 'Cartagena, Colombia'},
+            {'code': 'POA', 'name': 'Salgado Filho Porto Alegre International Airport', 'city': 'Porto Alegre, Brazil'},
+            {'code': 'EZE', 'name': 'Ministro Pistarini International Airport', 'city': 'Buenos Aires, Argentina'},
+            {'code': 'GIG', 'name': 'Rio de Janeiro/Galeão International Airport', 'city': 'Rio de Janeiro, Brazil'},
+            {'code': 'FOR', 'name': 'Fortaleza Airport', 'city': 'Fortaleza, Brazil'},
+            {'code': 'SSA', 'name': 'Salvador International Airport', 'city': 'Salvador, Brazil'},
+            {'code': 'CWB', 'name': 'Afonso Pena International Airport', 'city': 'Curitiba, Brazil'},
+            {'code': 'BEL', 'name': 'Belém/Val-de-Cans International Airport', 'city': 'Belém, Brazil'},
+            {'code': 'FLN', 'name': 'Hercílio Luz International Airport', 'city': 'Florianópolis, Brazil'},
+            {'code': 'MAO', 'name': 'Eduardo Gomes International Airport', 'city': 'Manaus, Brazil'},
+            {'code': 'UIO', 'name': 'Mariscal Sucre International Airport', 'city': 'Quito, Ecuador'},
+            {'code': 'GYE', 'name': 'José Joaquín de Olmedo International Airport', 'city': 'Guayaquil, Ecuador'},
+            {'code': 'CUZ', 'name': 'Alejandro Velasco Astete International Airport', 'city': 'Cusco, Peru'},
+            {'code': 'VIX', 'name': 'Eurico de Aguiar Salles Airport', 'city': 'Vitória, Brazil'},
+            {'code': 'MVD', 'name': 'Carrasco International Airport', 'city': 'Montevideo, Uruguay'},
+            {'code': 'ASU', 'name': 'Silvio Pettirossi International Airport', 'city': 'Asunción, Paraguay'},
+            {'code': 'GEO', 'name': 'Cheddi Jagan International Airport', 'city': 'Georgetown, Guyana'},
+            {'code': 'PBM', 'name': 'Johan Adolf Pengel International Airport', 'city': 'Paramaribo, Suriname'},
+            {'code': 'POS', 'name': 'Piarco International Airport', 'city': 'Port of Spain, Trinidad and Tobago'},
+            {'code': 'CAY', 'name': 'Cayenne – Félix Eboué Airport', 'city': 'Cayenne, French Guiana'},
+            {'code': 'LPB', 'name': 'El Alto International Airport', 'city': 'La Paz, Bolivia'},
+            {'code': 'VVI', 'name': 'Viru Viru International Airport', 'city': 'Santa Cruz, Bolivia'},
+            {'code': 'CBB', 'name': 'Jorge Wilstermann Airfield', 'city': 'Cochabamba, Bolivia'},
+        ]
+        
+        # Create a JSON response with the airport data for the frontend
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': south_america_airports,
+            'message': f'Added {len(south_america_airports)} South American airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
