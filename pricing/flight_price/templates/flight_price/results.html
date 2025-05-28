@@ -7,18 +7,109 @@
     <script src="{% static 'pricing/js/nouislider.min.js' %}"></script>
     <script src="{% static 'pricing/js/wNumb.min.js' %}"></script>
     <link rel="stylesheet" type="text/css" href="{% static 'pricing/style/style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <meta charset="UTF-8">
     <title>Amadeus Demo API</title>
+    <style>
+        .summary-table {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .country-row:hover {
+            background-color: #e9ecef;
+        }
+        .airport-card {
+            transition: transform 0.2s;
+        }
+        .airport-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .collapse-btn {
+            transition: transform 0.3s;
+        }
+        .collapse-btn[aria-expanded="true"] i {
+            transform: rotate(180deg);
+        }
+    </style>
 </head>
 <body>
 
-<h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} &#x2708 {% if all_results|length > 1 %}Multiple Destinations{% else %}{{ all_results.0.destination }}{% endif %} <br>{{ departure_date }}
+<h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} ({{ origin_name }}) &#x2708 {% if all_results|length > 1 %}Multiple Destinations{% else %}{{ all_results.0.destination }} ({{ all_results.0.destination_name }}){% endif %} <br>{{ departure_date }}
 {% if return_date %} <span class="text-info">&#10594&#10596</span> {{ return_date }}{% endif %}</h3>
+
+{% if country_summary and all_results|length > 1 %}
+<!-- Country Price Summary Table -->
+<div class="container-fluid mb-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="summary-table">
+                <h4 class="login-heading mb-3 text-left">Price Summary by Country</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Country</th>
+                                <th>Price Range</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for country in country_summary %}
+                            <tr class="country-row">
+                                <td><strong>{{ country.country }}</strong></td>
+                                <td>
+                                    <span class="badge badge-success">
+                                        {% if currency == 'EUR' %}€{% else %}${% endif %}{{ country.min_price|floatformat:0 }} - {% if currency == 'EUR' %}€{% else %}${% endif %}{{ country.max_price|floatformat:0 }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary collapse-btn" type="button" data-toggle="collapse" data-target="#country-{{ forloop.counter }}" aria-expanded="false" aria-controls="country-{{ forloop.counter }}">
+                                        <i class="fas fa-chevron-down"></i> Show Airports ({{ country.airports|length }})
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="3" class="p-0">
+                                    <div class="collapse" id="country-{{ forloop.counter }}">
+                                        <div class="card card-body">
+                                            <h6 class="mb-3">Airports in {{ country.country }}:</h6>
+                                            <div class="row">
+                                                {% for airport in country.airports %}
+                                                <div class="col-md-6 mb-2">
+                                                    <div class="card airport-card">
+                                                        <div class="card-body py-2">
+                                                            <h6 class="card-title mb-1">{{ airport.code }}</h6>
+                                                            <p class="card-text small mb-1">{{ airport.name }}</p>
+                                                            <span class="badge badge-info">
+                                                                {% if currency == 'EUR' %}€{% else %}${% endif %}{{ airport.min_price|floatformat:0 }} - {% if currency == 'EUR' %}€{% else %}${% endif %}{{ airport.max_price|floatformat:0 }}
+                                                            </span>
+                                                            <span class="badge badge-secondary ml-1">{{ airport.flight_count }} flights</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <div class="modal-body row">
     {% for result in all_results %}
     <div class="col-md-12 mb-5">
-        <h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} &#x2708 {{ result.destination }}</h3>
+        <h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} ({{ origin_name }}) &#x2708 {{ result.destination }} ({{ result.destination_name }})</h3>
         {% if result.trip_purpose %} 
             <h4 class="login-heading mb-4 mt-4 pl-3">Flying for <span style="font-size: 26;color: darkred;">{{ result.trip_purpose }} </span> purposes</h4> 
         {% endif %}
@@ -28,36 +119,47 @@
                 <h4 class="login-heading mb-4 text-left">FLIGHT OFFERS</h4>
                 {% if result.flight_offers %}
                     {% for r in result.flight_offers %}
-                        {% if r.0firstFlightDepartureDate %}
+                        {% comment %}Limit to 3 flights per destination when there are multiple destinations{% endcomment %}
+                        {% if all_results|length == 1 or forloop.counter0 < 3 %}
                             <div class="card mb-6 text-center" style="max-width: 40rem;">
                                 <div class="nounderline card-header text-center" style="font-size: 26;color: darkred;">{% if currency == 'EUR' %}€{% else %}${% endif %}{{ r.price }}
                                 </div>
                                 <div class="card-body">
                                     <div class="card-text">
-                                        <h4 class="font-weight-light text-info pb-3">Departure <span class="smallstyle">Total duration {{ r.0FlightTotalDuration }}</span></h4>
-                                        <h4><img src={{ r.0firstFlightAirlineLogo }} alt={{ r.0firstFlightAirline }}> {{ r.0firstFlightDepartureDate }} {{ r.0firstFlightDepartureAirport }}
-                                            <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.0firstFlightArrivalDuration }} duration>&#10230</a> {{ r.0firstFlightArrivalAirport }} {{ r.0firstFlightArrivalDate }}</h4>
-                                        {% if r.0secondFlightDepartureAirport %}
-                                            <p class="nounderline elegantstyle">Connection duration is {{ r.0stop_time }}</p>
-                                            <h4><img src={{ r.0secondFlightAirlineLogo }} alt={{ r.0secondFlightAirline }}> {{ r.0secondFlightDepartureDate }} {{ r.0secondFlightDepartureAirport }}
-                                                <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.0secondFlightArrivalDuration }} duration>&#10230</a> {{ r.0secondFlightArrivalAirport }} {{ r.0secondFlightArrivalDate }}</h4>
-                                        {% endif %}
-                                        {% if r.1firstFlightDepartureAirport %}
-                                            <hr class="newstyle">
-                                            <h4 class="font-weight-light text-info pb-3">Return <span class="" style="color: black; font-size: 15px;">Total duration {{ r.1FlightTotalDuration }}</span></h4>
-                                            <h4><img src={{ r.1firstFlightAirlineLogo }} alt={{ r.1firstFlightAirline }}> {{ r.1firstFlightDepartureDate }} {{ r.1firstFlightDepartureAirport }}
-                                                <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.1firstFlightArrivalDuration }} duration>&#10230</a> {{ r.1firstFlightArrivalAirport }} {{ r.1firstFlightArrivalDate }}</h4>
-                                            {% if r.1secondFlightDepartureAirport %}
-                                                <p class="nounderline elegantstyle">Connection duration is {{ r.1stop_time }}</p>
-                                                <h4><img src={{ r.1secondFlightAirlineLogo }} alt={{ r.1secondFlightAirline }}> {{ r.1secondFlightDepartureDate }} {{ r.1secondFlightDepartureAirport }}
-                                                    <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.1secondFlightArrivalDuration }} duration>&#10230</a> {{ r.1secondFlightArrivalAirport }} {{ r.1secondFlightArrivalDate }}</h4>
+                                        {% if r.0firstFlightDepartureDate %}
+                                            <h4 class="font-weight-light text-info pb-3">Departure <span class="smallstyle">Total duration {{ r.0FlightTotalDuration }}</span></h4>
+                                            <h4><img src={{ r.0firstFlightAirlineLogo }} alt={{ r.0firstFlightAirline }}> {{ r.0firstFlightDepartureDate }} {{ r.0firstFlightDepartureAirport }}
+                                                <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.0firstFlightArrivalDuration }} duration>&#10230</a> {{ r.0firstFlightArrivalAirport }} {{ r.0firstFlightArrivalDate }}</h4>
+                                            {% if r.0secondFlightDepartureAirport %}
+                                                <p class="nounderline elegantstyle">Connection duration is {{ r.0stop_time }}</p>
+                                                <h4><img src={{ r.0secondFlightAirlineLogo }} alt={{ r.0secondFlightAirline }}> {{ r.0secondFlightDepartureDate }} {{ r.0secondFlightDepartureAirport }}
+                                                    <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.0secondFlightArrivalDuration }} duration>&#10230</a> {{ r.0secondFlightArrivalAirport }} {{ r.0secondFlightArrivalDate }}</h4>
                                             {% endif %}
+                                            {% if r.1firstFlightDepartureAirport %}
+                                                <hr class="newstyle">
+                                                <h4 class="font-weight-light text-info pb-3">Return <span class="" style="color: black; font-size: 15px;">Total duration {{ r.1FlightTotalDuration }}</span></h4>
+                                                <h4><img src={{ r.1firstFlightAirlineLogo }} alt={{ r.1firstFlightAirline }}> {{ r.1firstFlightDepartureDate }} {{ r.1firstFlightDepartureAirport }}
+                                                    <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.1firstFlightArrivalDuration }} duration>&#10230</a> {{ r.1firstFlightArrivalAirport }} {{ r.1firstFlightArrivalDate }}</h4>
+                                                {% if r.1secondFlightDepartureAirport %}
+                                                    <p class="nounderline elegantstyle">Connection duration is {{ r.1stop_time }}</p>
+                                                    <h4><img src={{ r.1secondFlightAirlineLogo }} alt={{ r.1secondFlightAirline }}> {{ r.1secondFlightDepartureDate }} {{ r.1secondFlightDepartureAirport }}
+                                                        <a href="#" data-toggle="tooltip" class="nounderline text-info" title={{ r.1secondFlightArrivalDuration }} duration>&#10230</a> {{ r.1secondFlightArrivalAirport }} {{ r.1secondFlightArrivalDate }}</h4>
+                                                {% endif %}
+                                            {% endif %}
+                                        {% else %}
+                                            <h4 class="text-warning">Flight details not available</h4>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                         {% endif %}
                     {% endfor %}
+                    {% comment %}Show message if there are more flights than displayed{% endcomment %}
+                    {% if all_results|length > 1 and result.flight_offers|length > 3 %}
+                        <div class="alert alert-info">
+                            Showing top 3 of {{ result.flight_offers|length }} available flights for this destination.
+                        </div>
+                    {% endif %}
                 {% else %}
                     <div class="alert alert-warning">
                         No flights found for this route
@@ -92,6 +194,23 @@
 <script>
     $(document).ready(function(){
         $('[data-toggle="tooltip"]').tooltip();
+        
+        // Handle collapse button text and icon changes
+        $('.collapse').on('shown.bs.collapse', function () {
+            var button = $('[data-target="#' + this.id + '"]');
+            var countryName = button.closest('tr').find('td:first strong').text();
+            var airportCount = button.text().match(/\((\d+)\)/)[1];
+            button.html('<i class="fas fa-chevron-up"></i> Hide Airports (' + airportCount + ')');
+            button.attr('aria-expanded', 'true');
+        });
+        
+        $('.collapse').on('hidden.bs.collapse', function () {
+            var button = $('[data-target="#' + this.id + '"]');
+            var countryName = button.closest('tr').find('td:first strong').text();
+            var airportCount = button.text().match(/\((\d+)\)/)[1];
+            button.html('<i class="fas fa-chevron-down"></i> Show Airports (' + airportCount + ')');
+            button.attr('aria-expanded', 'false');
+        });
     });
 </script>
 <script>

@@ -79,6 +79,7 @@ def flight_offers(request):
                     all_results.append({
                         'flight_offers': flight_offers,
                         'destination': destination,
+                        'destination_name': get_airport_name(destination),
                         'metrics': metrics[destination],
                         'cheapest_flight': cheapest_flights[destination],
                         'is_good_deal': is_good_deals.get(destination, 'NO FLIGHTS'),
@@ -98,9 +99,17 @@ def flight_offers(request):
             messages.error(request, 'No flights found for the given criteria')
             return render(request, 'flight_price/home.html')
 
+        # Also get the origin airport name
+        origin_name = get_airport_name(origin)
+
+        # Create country summary for the summary table
+        country_summary = create_country_summary(all_results)
+
         return render(request, 'flight_price/results.html', {
             'all_results': all_results,
+            'country_summary': country_summary,
             'origin': origin,
+            'origin_name': origin_name,
             'departure_date': departure_date,
             'return_date': return_date,
             'currency': currency
@@ -262,3 +271,110 @@ def add_south_america_airports(request):
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
+
+
+def get_airport_name(iata_code):
+    """Get airport name with country from IATA code using Amadeus API"""
+    try:
+        if not iata_code:
+            return iata_code
+        
+        # Use the same API endpoint as the search functions
+        data = amadeus.reference_data.locations.get(keyword=iata_code, subType=Location.ANY).data
+        
+        # Find exact match for the IATA code
+        for location in data:
+            if location.get('iataCode') == iata_code:
+                name = location.get('name', iata_code)
+                # Try to get country information
+                address = location.get('address', {})
+                country = address.get('countryName', '')
+                city = address.get('cityName', '')
+                
+                # Format: "Airport Name, City, Country" or just "Airport Name" if no additional info
+                if country and city:
+                    return f"{name}, {city}, {country}"
+                elif country:
+                    return f"{name}, {country}"
+                elif city:
+                    return f"{name}, {city}"
+                else:
+                    return name
+        
+        # If no exact match found, return the original code
+        return iata_code
+    except Exception as e:
+        logger.warning(f"Could not get airport name for {iata_code}: {str(e)}")
+        return iata_code
+
+
+def extract_country_from_airport_name(airport_name):
+    """Extract country name from airport name string"""
+    # Airport names are formatted as "Airport Name, City, Country" or "Airport Name, Country"
+    if ',' in airport_name:
+        parts = airport_name.split(',')
+        if len(parts) >= 2:
+            # Last part should be the country
+            country = parts[-1].strip()
+            return country
+    return "Unknown"
+
+
+def create_country_summary(all_results):
+    """Create a summary of flight results grouped by country with price ranges"""
+    country_data = {}
+    
+    for result in all_results:
+        if not result['flight_offers']:
+            continue
+            
+        # Extract country from destination name
+        country = extract_country_from_airport_name(result['destination_name'])
+        
+        # Get all prices for this destination
+        prices = []
+        for flight in result['flight_offers']:
+            try:
+                price = float(flight['price'])
+                prices.append(price)
+            except (ValueError, KeyError):
+                continue
+        
+        if not prices:
+            continue
+            
+        # Initialize country entry if not exists
+        if country not in country_data:
+            country_data[country] = {
+                'country': country,
+                'airports': [],
+                'min_price': float('inf'),
+                'max_price': 0
+            }
+        
+        # Add airport data
+        airport_info = {
+            'code': result['destination'],
+            'name': result['destination_name'],
+            'min_price': min(prices),
+            'max_price': max(prices),
+            'flight_count': len(prices)
+        }
+        
+        country_data[country]['airports'].append(airport_info)
+        
+        # Update country min/max prices
+        country_data[country]['min_price'] = min(country_data[country]['min_price'], min(prices))
+        country_data[country]['max_price'] = max(country_data[country]['max_price'], max(prices))
+    
+    # Convert to list and sort by minimum price
+    country_summary = list(country_data.values())
+    
+    # Sort countries by minimum price
+    country_summary.sort(key=lambda x: x['min_price'])
+    
+    # Sort airports within each country by minimum price
+    for country in country_summary:
+        country['airports'].sort(key=lambda x: x['min_price'])
+    
+    return country_summary
