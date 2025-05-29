@@ -37,8 +37,15 @@
 </head>
 <body>
 
-<h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} ({{ origin_name }}) &#x2708 {% if all_results|length > 1 %}Multiple Destinations{% else %}{{ all_results.0.destination }} ({{ all_results.0.destination_name }}){% endif %} <br>{{ departure_date }}
-{% if return_date %} <span class="text-info">&#10594&#10596</span> {{ return_date }}{% endif %}</h3>
+<h3 class="login-heading mb-4 mt-4 pl-3">
+{% if search_mode == 'destinations' %}
+    {{ single_origin }} ({{ single_origin_name }}) &#x2708 {% if all_results|length > 1 %}Multiple Destinations{% else %}{{ all_results.0.destination }} ({{ all_results.0.destination_name }}){% endif %}
+{% else %}
+    {% if all_results|length > 1 %}Multiple Origins{% else %}{{ all_results.0.origin }} ({{ all_results.0.origin_name }}){% endif %} &#x2708 {{ single_destination }} ({{ single_destination_name }})
+{% endif %}
+<br>{{ departure_date }}
+{% if return_date %} <span class="text-info">&#10594&#10596</span> {{ return_date }}{% endif %}
+</h3>
 
 {% if country_summary and all_results|length > 1 %}
 <!-- Country Price Summary Table -->
@@ -46,7 +53,13 @@
     <div class="row">
         <div class="col-12">
             <div class="summary-table">
-                <h4 class="login-heading mb-3 text-left">Price Summary by Country</h4>
+                <h4 class="login-heading mb-3 text-left">
+                    {% if search_mode == 'destinations' %}
+                        Price Summary by Country
+                    {% else %}
+                        Price Summary by Origin Country
+                    {% endif %}
+                </h4>
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
                         <thead class="thead-dark">
@@ -109,7 +122,7 @@
 <div class="modal-body row">
     {% for result in all_results %}
     <div class="col-md-12 mb-5">
-        <h3 class="login-heading mb-4 mt-4 pl-3">{{ origin }} ({{ origin_name }}) &#x2708 {{ result.destination }} ({{ result.destination_name }})</h3>
+        <h3 class="login-heading mb-4 mt-4 pl-3">{{ result.origin }} ({{ result.origin_name }}) &#x2708 {{ result.destination }} ({{ result.destination_name }})</h3>
         {% if result.trip_purpose %} 
             <h4 class="login-heading mb-4 mt-4 pl-3">Flying for <span style="font-size: 26;color: darkred;">{{ result.trip_purpose }} </span> purposes</h4> 
         {% endif %}

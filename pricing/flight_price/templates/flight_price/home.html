@@ -118,12 +118,29 @@
                         </ul>
                         {% endif %}
                       <h3 class="login-heading mb-4">Amadeus Flight Search</h3>
+                      
+                      <!-- Search Mode Toggle -->
+                      <div class="form-group mb-4">
+                          <div class="btn-group btn-group-toggle w-100" data-toggle="buttons">
+                              <label class="btn btn-outline-primary active" id="mode-destinations">
+                                  <input type="radio" name="search_mode" value="destinations" autocomplete="off" checked> Multiple Destinations
+                              </label>
+                              <label class="btn btn-outline-primary" id="mode-origins">
+                                  <input type="radio" name="search_mode" value="origins" autocomplete="off"> Multiple Origins
+                              </label>
+                          </div>
+                      </div>
+                      
                       <form method="POST" action="{% url 'flight_offers' %}" id="form_id">
                           {% csrf_token %}
-                          <div class="form-label-group">
-                              <input type="text" name="Origin" id="inputOrigin"
-                                     class="form-control" placeholder="From" required autofocus>
-                              <label for="inputOrigin">From</label>
+                          <input type="hidden" name="search_mode" id="search_mode" value="destinations">
+                          
+                          <div id="origin-container">
+                              <div class="form-label-group origin-group">
+                                  <input type="text" name="Origin" id="inputOrigin"
+                                         class="form-control" placeholder="From" required autofocus>
+                                  <label for="inputOrigin">From</label>
+                              </div>
                           </div>
 
                           <div id="destination-container">
@@ -211,75 +228,148 @@
         <script>
             $(document).ready(function() {
                 let destinationCount = 1;
+                let originCount = 1;
                 
-                // Initialize autocomplete for the first destination field
+                // Initialize autocomplete for the first fields
+                $("#inputOrigin").autocomplete({
+                    source: "{% url 'origin_airport_search'%}",
+                    minLength: 1,
+                    delay: 200,
+                });
+                
                 $("#inputDestination").autocomplete({
                     source: "{% url 'destination_airport_search'%}",
                     minLength: 1,
                     delay: 200,
                 });
                 
-                $("#addDestination").click(function() {
-                    destinationCount++;
-                    const newDestination = `
-                        <div class="form-label-group destination-group">
-                            <input type="text" name="Destination" id="inputDestination${destinationCount}"
-                                   class="form-control destination-input" placeholder="To" required>
-                            <label for="inputDestination${destinationCount}">To</label>
-                        </div>
-                    `;
-                    $("#destination-container").append(newDestination);
+                // Handle search mode toggle
+                $('input[name="search_mode"]').change(function() {
+                    const mode = $(this).val();
+                    $("#search_mode").val(mode);
                     
-                    // Initialize autocomplete for the new destination field
-                    $(`#inputDestination${destinationCount}`).autocomplete({
-                        source: "{% url 'destination_airport_search'%}",
-                        minLength: 1,
-                        delay: 200,
-                    });
+                    if (mode === 'destinations') {
+                        // Multiple destinations mode
+                        $("#addDestination").text("Add Another Destination").show();
+                        $("#destination-container .destination-group:not(:first)").remove();
+                        $("#origin-container .origin-group:not(:first)").remove();
+                        destinationCount = 1;
+                        originCount = 1;
+                        $("#inputDestination").val('');
+                    } else {
+                        // Multiple origins mode  
+                        $("#addDestination").text("Add Another Origin").show();
+                        $("#destination-container .destination-group:not(:first)").remove();
+                        $("#origin-container .origin-group:not(:first)").remove();
+                        destinationCount = 1;
+                        originCount = 1;
+                        $("#inputOrigin").val('');
+                    }
+                });
+                
+                $("#addDestination").click(function() {
+                    const mode = $("#search_mode").val();
+                    
+                    if (mode === 'destinations') {
+                        // Add another destination
+                        destinationCount++;
+                        const newDestination = `
+                            <div class="form-label-group destination-group">
+                                <input type="text" name="Destination" id="inputDestination${destinationCount}"
+                                       class="form-control destination-input" placeholder="To" required>
+                                <label for="inputDestination${destinationCount}">To</label>
+                            </div>
+                        `;
+                        $("#destination-container").append(newDestination);
+                        
+                        $(`#inputDestination${destinationCount}`).autocomplete({
+                            source: "{% url 'destination_airport_search'%}",
+                            minLength: 1,
+                            delay: 200,
+                        });
+                    } else {
+                        // Add another origin
+                        originCount++;
+                        const newOrigin = `
+                            <div class="form-label-group origin-group">
+                                <input type="text" name="Origin" id="inputOrigin${originCount}"
+                                       class="form-control origin-input" placeholder="From" required>
+                                <label for="inputOrigin${originCount}">From</label>
+                            </div>
+                        `;
+                        $("#origin-container").append(newOrigin);
+                        
+                        $(`#inputOrigin${originCount}`).autocomplete({
+                            source: "{% url 'origin_airport_search'%}",
+                            minLength: 1,
+                            delay: 200,
+                        });
+                    }
                 });
                 
                 $("#addSouthAmericaAirports").click(function() {
-                    // Clear existing destination fields except the first one
-                    $("#destination-container .destination-group:not(:first)").remove();
-                    destinationCount = 1;
+                    const mode = $("#search_mode").val();
+                    const targetContainer = mode === 'destinations' ? 'destination' : 'origin';
+                    const targetClass = mode === 'destinations' ? 'destination-group' : 'origin-group';
+                    const targetInput = mode === 'destinations' ? '#inputDestination' : '#inputOrigin';
+                    const targetName = mode === 'destinations' ? 'Destination' : 'Origin';
+                    const targetLabel = mode === 'destinations' ? 'To' : 'From';
                     
-                    // Make AJAX request to get South American airports
+                    // Clear existing fields except the first one
+                    $(`#${targetContainer}-container .${targetClass}:not(:first)`).remove();
+                    if (mode === 'destinations') {
+                        destinationCount = 1;
+                    } else {
+                        originCount = 1;
+                    }
+                    
                     $.ajax({
                         url: "{% url 'add_south_america_airports' %}",
                         type: "POST",
+                        data: { 'mode': mode },
                         headers: {
                             'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
                             'X-Requested-With': 'XMLHttpRequest'
                         },
                         success: function(response) {
                             if (response.success) {
-                                // Clear the first destination field
-                                $("#inputDestination").val('');
+                                $(targetInput).val('');
                                 
-                                // Add all South American airports as destination fields
                                 response.airports.forEach(function(airport, index) {
                                     if (index === 0) {
-                                        // Use the first destination field
-                                        $("#inputDestination").val(airport.code + ", " + airport.name);
+                                        $(targetInput).val(airport.code + ", " + airport.name);
                                     } else {
-                                        // Add new destination fields for the rest
-                                        destinationCount++;
-                                        const newDestination = `
-                                            <div class="form-label-group destination-group">
-                                                <input type="text" name="Destination" id="inputDestination${destinationCount}"
-                                                       class="form-control destination-input" placeholder="To" required
-                                                       value="${airport.code}, ${airport.name}">
-                                                <label for="inputDestination${destinationCount}">To</label>
-                                            </div>
-                                        `;
-                                        $("#destination-container").append(newDestination);
-                                        
-                                        // Initialize autocomplete for the new destination field
-                                        $(`#inputDestination${destinationCount}`).autocomplete({
-                                            source: "{% url 'destination_airport_search'%}",
-                                            minLength: 1,
-                                            delay: 200,
-                                        });
+                                        if (mode === 'destinations') {
+                                            destinationCount++;
+                                            const newField = `
+                                                <div class="form-label-group destination-group">
+                                                    <input type="text" name="${targetName}" id="inputDestination${destinationCount}"
+                                                           class="form-control destination-input" placeholder="${targetLabel}" required
+                                                           value="${airport.code}, ${airport.name}">
+                                                    <label for="inputDestination${destinationCount}">${targetLabel}</label>
+                                                </div>
+                                            `;
+                                            $("#destination-container").append(newField);
+                                            $(`#inputDestination${destinationCount}`).autocomplete({
+                                                source: "{% url 'destination_airport_search'%}",
+                                                minLength: 1, delay: 200,
+                                            });
+                                        } else {
+                                            originCount++;
+                                            const newField = `
+                                                <div class="form-label-group origin-group">
+                                                    <input type="text" name="${targetName}" id="inputOrigin${originCount}"
+                                                           class="form-control origin-input" placeholder="${targetLabel}" required
+                                                           value="${airport.code}, ${airport.name}">
+                                                    <label for="inputOrigin${originCount}">${targetLabel}</label>
+                                                </div>
+                                            `;
+                                            $("#origin-container").append(newField);
+                                            $(`#inputOrigin${originCount}`).autocomplete({
+                                                source: "{% url 'origin_airport_search'%}",
+                                                minLength: 1, delay: 200,
+                                            });
+                                        }
                                     }
                                 });
                                 
@@ -298,10 +388,20 @@
                 $(".continent-btn").click(function() {
                     const continent = $(this).data('continent');
                     const continentName = $(this).text().replace(/🌎|🇪🇺|🌏|🌍/g, '').trim();
+                    const mode = $("#search_mode").val();
+                    const targetContainer = mode === 'destinations' ? 'destination' : 'origin';
+                    const targetClass = mode === 'destinations' ? 'destination-group' : 'origin-group';
+                    const targetInput = mode === 'destinations' ? '#inputDestination' : '#inputOrigin';
+                    const targetName = mode === 'destinations' ? 'Destination' : 'Origin';
+                    const targetLabel = mode === 'destinations' ? 'To' : 'From';
                     
-                    // Clear existing destination fields except the first one
-                    $("#destination-container .destination-group:not(:first)").remove();
-                    destinationCount = 1;
+                    // Clear existing fields except the first one
+                    $(`#${targetContainer}-container .${targetClass}:not(:first)`).remove();
+                    if (mode === 'destinations') {
+                        destinationCount = 1;
+                    } else {
+                        originCount = 1;
+                    }
                     
                     // Map continent names to URLs
                     const urlMap = {
@@ -313,43 +413,53 @@
                         'oceania': "{% url 'add_oceania_airports' %}"
                     };
                     
-                    // Make AJAX request to get airports for the selected continent
                     $.ajax({
                         url: urlMap[continent],
                         type: "POST",
+                        data: { 'mode': mode },
                         headers: {
                             'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val(),
                             'X-Requested-With': 'XMLHttpRequest'
                         },
                         success: function(response) {
                             if (response.success) {
-                                // Clear the first destination field
-                                $("#inputDestination").val('');
+                                $(targetInput).val('');
                                 
-                                // Add all airports as destination fields
                                 response.airports.forEach(function(airport, index) {
                                     if (index === 0) {
-                                        // Use the first destination field
-                                        $("#inputDestination").val(airport.code + ", " + airport.name);
+                                        $(targetInput).val(airport.code + ", " + airport.name);
                                     } else {
-                                        // Add new destination fields for the rest
-                                        destinationCount++;
-                                        const newDestination = `
-                                            <div class="form-label-group destination-group">
-                                                <input type="text" name="Destination" id="inputDestination${destinationCount}"
-                                                       class="form-control destination-input" placeholder="To" required
-                                                       value="${airport.code}, ${airport.name}">
-                                                <label for="inputDestination${destinationCount}">To</label>
-                                            </div>
-                                        `;
-                                        $("#destination-container").append(newDestination);
-                                        
-                                        // Initialize autocomplete for the new destination field
-                                        $(`#inputDestination${destinationCount}`).autocomplete({
-                                            source: "{% url 'destination_airport_search'%}",
-                                            minLength: 1,
-                                            delay: 200,
-                                        });
+                                        if (mode === 'destinations') {
+                                            destinationCount++;
+                                            const newField = `
+                                                <div class="form-label-group destination-group">
+                                                    <input type="text" name="${targetName}" id="inputDestination${destinationCount}"
+                                                           class="form-control destination-input" placeholder="${targetLabel}" required
+                                                           value="${airport.code}, ${airport.name}">
+                                                    <label for="inputDestination${destinationCount}">${targetLabel}</label>
+                                                </div>
+                                            `;
+                                            $("#destination-container").append(newField);
+                                            $(`#inputDestination${destinationCount}`).autocomplete({
+                                                source: "{% url 'destination_airport_search'%}",
+                                                minLength: 1, delay: 200,
+                                            });
+                                        } else {
+                                            originCount++;
+                                            const newField = `
+                                                <div class="form-label-group origin-group">
+                                                    <input type="text" name="${targetName}" id="inputOrigin${originCount}"
+                                                           class="form-control origin-input" placeholder="${targetLabel}" required
+                                                           value="${airport.code}, ${airport.name}">
+                                                    <label for="inputOrigin${originCount}">${targetLabel}</label>
+                                                </div>
+                                            `;
+                                            $("#origin-container").append(newField);
+                                            $(`#inputOrigin${originCount}`).autocomplete({
+                                                source: "{% url 'origin_airport_search'%}",
+                                                minLength: 1, delay: 200,
+                                            });
+                                        }
                                     }
                                 });
                                 
@@ -368,11 +478,13 @@
             $("#form_id").on("submit", function (e) {
                 e.preventDefault();
                 
-                // Process origin field
-                var originGiven = $("#inputOrigin").val();
-                $("#inputOrigin").val(originGiven.slice(0,3));
+                // Process origin fields
+                $("input[name='Origin']").each(function() {
+                    var originGiven = $(this).val();
+                    $(this).val(originGiven.slice(0,3));
+                });
                 
-                // Process all destination fields
+                // Process destination fields
                 $("input[name='Destination']").each(function() {
                     var destinationGiven = $(this).val();
                     $(this).val(destinationGiven.slice(0,3));

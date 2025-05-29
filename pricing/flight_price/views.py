@@ -19,15 +19,34 @@ def flight_offers(request):
         return render(request, 'flight_price/home.html')
         
     try:
-        origin = request.POST.get('Origin')
+        search_mode = request.POST.get('search_mode', 'destinations')
+        origins = request.POST.getlist('Origin')
         destinations = request.POST.getlist('Destination')
         departure_date = request.POST.get('Departuredate')
         return_date = request.POST.get('Returndate')
         currency = request.POST.get('Currency', 'USD')  # Default to USD if not specified
 
-        logger.info(f"Flight search request - Origin: {origin}, Destinations: {destinations}, Departure: {departure_date}, Return: {return_date}")
+        logger.info(f"Flight search request - Mode: {search_mode}, Origins: {origins}, Destinations: {destinations}, Departure: {departure_date}, Return: {return_date}")
 
-        if not origin or not destinations or not departure_date:
+        # Validate inputs based on mode
+        if search_mode == 'destinations':
+            # Multiple destinations mode: 1 origin, multiple destinations
+            if not origins or len(origins) != 1 or not destinations:
+                messages.error(request, 'Please provide one origin and at least one destination')
+                return render(request, 'flight_price/home.html')
+            origin = origins[0]
+            search_list = destinations
+            search_type = 'destination'
+        else:
+            # Multiple origins mode: multiple origins, 1 destination
+            if not destinations or len(destinations) != 1 or not origins:
+                messages.error(request, 'Please provide multiple origins and one destination')
+                return render(request, 'flight_price/home.html')
+            destination = destinations[0]
+            search_list = origins
+            search_type = 'origin'
+
+        if not departure_date:
             messages.error(request, 'Please fill in all required fields')
             return render(request, 'flight_price/home.html')
 
@@ -37,79 +56,113 @@ def flight_offers(request):
         cheapest_flights = {}
         is_good_deals = {}
 
-        for destination in destinations:
+        for search_item in search_list:
             try:
-                kwargs = {'originLocationCode': origin,
-                         'destinationLocationCode': destination,
+                # Set up origin and destination based on mode
+                if search_mode == 'destinations':
+                    current_origin = origin
+                    current_destination = search_item
+                else:
+                    current_origin = search_item
+                    current_destination = destination
+
+                kwargs = {'originLocationCode': current_origin,
+                         'destinationLocationCode': current_destination,
                          'departureDate': departure_date,
                          'adults': 1,
                          'currencyCode': currency
                          }
 
-                kwargs_metrics = {'originIataCode': origin,
-                                'destinationIataCode': destination,
+                kwargs_metrics = {'originIataCode': current_origin,
+                                'destinationIataCode': current_destination,
                                 'departureDate': departure_date,
                                 'currencyCode': currency
                                 }
 
                 if return_date:
                     kwargs['returnDate'] = return_date
-                    kwargs_trip_purpose = {'originLocationCode': origin,
-                                         'destinationLocationCode': destination,
+                    kwargs_trip_purpose = {'originLocationCode': current_origin,
+                                         'destinationLocationCode': current_destination,
                                          'departureDate': departure_date,
                                          'returnDate': return_date
                                          }
-                    trip_purposes[destination] = get_trip_purpose(**kwargs_trip_purpose)
+                    trip_purposes[search_item] = get_trip_purpose(**kwargs_trip_purpose)
                 else:
                     kwargs_metrics['oneWay'] = 'true'
 
-                if origin and destination and departure_date:
-                    flight_offers = get_flight_offers(**kwargs)
-                    metrics[destination] = get_flight_price_metrics(**kwargs_metrics)
-                    cheapest_flights[destination] = get_cheapest_flight_price(flight_offers)
-                    
-                    if metrics[destination] is not None:
-                        is_good_deals[destination] = rank_cheapest_flight(
-                            cheapest_flights[destination], 
-                            metrics[destination]['first'], 
-                            metrics[destination]['third']
-                        )
-                        is_cheapest_flight_out_of_range(cheapest_flights[destination], metrics[destination])
+                flight_offers = get_flight_offers(**kwargs)
+                metrics[search_item] = get_flight_price_metrics(**kwargs_metrics)
+                cheapest_flights[search_item] = get_cheapest_flight_price(flight_offers)
+                
+                if metrics[search_item] is not None:
+                    is_good_deals[search_item] = rank_cheapest_flight(
+                        cheapest_flights[search_item], 
+                        metrics[search_item]['first'], 
+                        metrics[search_item]['third']
+                    )
+                    is_cheapest_flight_out_of_range(cheapest_flights[search_item], metrics[search_item])
 
+                # Store result with consistent structure
+                if search_mode == 'destinations':
                     all_results.append({
                         'flight_offers': flight_offers,
-                        'destination': destination,
-                        'destination_name': get_airport_name(destination),
-                        'metrics': metrics[destination],
-                        'cheapest_flight': cheapest_flights[destination],
-                        'is_good_deal': is_good_deals.get(destination, 'NO FLIGHTS'),
-                        'trip_purpose': trip_purposes.get(destination, '')
+                        'origin': current_origin,
+                        'origin_name': get_airport_name(current_origin),
+                        'destination': current_destination,
+                        'destination_name': get_airport_name(current_destination),
+                        'metrics': metrics[search_item],
+                        'cheapest_flight': cheapest_flights[search_item],
+                        'is_good_deal': is_good_deals.get(search_item, 'NO FLIGHTS'),
+                        'trip_purpose': trip_purposes.get(search_item, '')
+                    })
+                else:
+                    all_results.append({
+                        'flight_offers': flight_offers,
+                        'origin': current_origin,
+                        'origin_name': get_airport_name(current_origin),
+                        'destination': current_destination,
+                        'destination_name': get_airport_name(current_destination),
+                        'metrics': metrics[search_item],
+                        'cheapest_flight': cheapest_flights[search_item],
+                        'is_good_deal': is_good_deals.get(search_item, 'NO FLIGHTS'),
+                        'trip_purpose': trip_purposes.get(search_item, '')
                     })
 
             except ResponseError as error:
-                logger.error(f"Amadeus API error for {origin} to {destination}: {error.response.result['errors'][0]['detail']}")
-                messages.add_message(request, messages.ERROR, f"Error searching flights from {origin} to {destination}: {error.response.result['errors'][0]['detail']}")
+                logger.error(f"Amadeus API error for {current_origin} to {current_destination}: {error.response.result['errors'][0]['detail']}")
+                messages.add_message(request, messages.ERROR, f"Error searching flights from {current_origin} to {current_destination}: {error.response.result['errors'][0]['detail']}")
                 continue
             except Exception as e:
-                logger.error(f"Unexpected error for {origin} to {destination}: {str(e)}")
-                messages.add_message(request, messages.ERROR, f"Unexpected error searching flights from {origin} to {destination}")
+                logger.error(f"Unexpected error for {current_origin} to {current_destination}: {str(e)}")
+                messages.add_message(request, messages.ERROR, f"Unexpected error searching flights from {current_origin} to {current_destination}")
                 continue
 
         if not all_results:
             messages.error(request, 'No flights found for the given criteria')
             return render(request, 'flight_price/home.html')
 
-        # Also get the origin airport name
-        origin_name = get_airport_name(origin)
-
-        # Create country summary for the summary table
-        country_summary = create_country_summary(all_results)
+        # Create summary based on mode
+        if search_mode == 'destinations':
+            summary = create_country_summary(all_results) if len(all_results) > 1 else None
+            single_origin = origins[0]
+            single_origin_name = get_airport_name(single_origin)
+            single_destination = None
+            single_destination_name = None
+        else:
+            summary = create_origin_summary(all_results) if len(all_results) > 1 else None
+            single_origin = None
+            single_origin_name = None
+            single_destination = destinations[0]
+            single_destination_name = get_airport_name(single_destination)
 
         return render(request, 'flight_price/results.html', {
             'all_results': all_results,
-            'country_summary': country_summary,
-            'origin': origin,
-            'origin_name': origin_name,
+            'country_summary': summary,  # This name is kept for template compatibility
+            'search_mode': search_mode,
+            'single_origin': single_origin,
+            'single_origin_name': single_origin_name,
+            'single_destination': single_destination,
+            'single_destination_name': single_destination_name,
             'departure_date': departure_date,
             'return_date': return_date,
             'currency': currency
@@ -220,8 +273,10 @@ def get_city_airport_list(data):
 
 
 def add_south_america_airports(request):
-    """Add all major South American airports as destinations"""
+    """Add all major South American airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         # Major South American airports with their IATA codes and cities
         south_america_airports = [
             {'code': 'GRU', 'name': 'São Paulo–Guarulhos International Airport', 'city': 'São Paulo, Brazil'},
@@ -263,11 +318,15 @@ def add_south_america_airports(request):
             {'code': 'CBB', 'name': 'Jorge Wilstermann Airfield', 'city': 'Cochabamba, Bolivia'},
         ]
         
+        # Adjust message based on mode
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(south_america_airports)} South American airports as {airport_type}'
+        
         # Create a JSON response with the airport data for the frontend
         return HttpResponse(json.dumps({
             'success': True,
             'airports': south_america_airports,
-            'message': f'Added {len(south_america_airports)} South American airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
@@ -318,6 +377,66 @@ def extract_country_from_airport_name(airport_name):
             country = parts[-1].strip()
             return country
     return "Unknown"
+
+
+def create_origin_summary(all_results):
+    """Create a summary of flight results grouped by origin country with price ranges"""
+    country_data = {}
+    
+    for result in all_results:
+        if not result['flight_offers']:
+            continue
+            
+        # Extract country from origin name
+        country = extract_country_from_airport_name(result['origin_name'])
+        
+        # Get all prices for this origin
+        prices = []
+        for flight in result['flight_offers']:
+            try:
+                price = float(flight['price'])
+                prices.append(price)
+            except (ValueError, KeyError):
+                continue
+        
+        if not prices:
+            continue
+            
+        # Initialize country entry if not exists
+        if country not in country_data:
+            country_data[country] = {
+                'country': country,
+                'airports': [],
+                'min_price': float('inf'),
+                'max_price': 0
+            }
+        
+        # Add airport data
+        airport_info = {
+            'code': result['origin'],
+            'name': result['origin_name'],
+            'min_price': min(prices),
+            'max_price': max(prices),
+            'flight_count': len(prices)
+        }
+        
+        country_data[country]['airports'].append(airport_info)
+        
+        # Update country min/max prices
+        country_data[country]['min_price'] = min(country_data[country]['min_price'], min(prices))
+        country_data[country]['max_price'] = max(country_data[country]['max_price'], max(prices))
+    
+    # Convert to list and sort by minimum price
+    country_summary = list(country_data.values())
+    
+    # Sort countries by minimum price
+    country_summary.sort(key=lambda x: x['min_price'])
+    
+    # Sort airports within each country by minimum price
+    for country in country_summary:
+        country['airports'].sort(key=lambda x: x['min_price'])
+    
+    return country_summary
 
 
 def create_country_summary(all_results):
@@ -381,8 +500,10 @@ def create_country_summary(all_results):
 
 
 def add_europe_airports(request):
-    """Add all major European airports as destinations"""
+    """Add all major European airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         europe_airports = [
             {'code': 'LHR', 'name': 'Heathrow Airport', 'city': 'London, United Kingdom'},
             {'code': 'CDG', 'name': 'Charles de Gaulle Airport', 'city': 'Paris, France'},
@@ -406,18 +527,23 @@ def add_europe_airports(request):
             {'code': 'IST', 'name': 'Istanbul Airport', 'city': 'Istanbul, Turkey'},
         ]
         
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(europe_airports)} European airports as {airport_type}'
+        
         return HttpResponse(json.dumps({
             'success': True,
             'airports': europe_airports,
-            'message': f'Added {len(europe_airports)} European airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
 
 
 def add_asia_airports(request):
-    """Add all major Asian airports as destinations"""
+    """Add all major Asian airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         asia_airports = [
             {'code': 'NRT', 'name': 'Narita International Airport', 'city': 'Tokyo, Japan'},
             {'code': 'HND', 'name': 'Haneda Airport', 'city': 'Tokyo, Japan'},
@@ -441,18 +567,23 @@ def add_asia_airports(request):
             {'code': 'BAH', 'name': 'Bahrain International Airport', 'city': 'Manama, Bahrain'},
         ]
         
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(asia_airports)} Asian airports as {airport_type}'
+        
         return HttpResponse(json.dumps({
             'success': True,
             'airports': asia_airports,
-            'message': f'Added {len(asia_airports)} Asian airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
 
 
 def add_north_america_airports(request):
-    """Add all major North American airports as destinations"""
+    """Add all major North American airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         north_america_airports = [
             {'code': 'JFK', 'name': 'John F. Kennedy International Airport', 'city': 'New York, USA'},
             {'code': 'LAX', 'name': 'Los Angeles International Airport', 'city': 'Los Angeles, USA'},
@@ -476,18 +607,23 @@ def add_north_america_airports(request):
             {'code': 'PTY', 'name': 'Tocumen International Airport', 'city': 'Panama City, Panama'},
         ]
         
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(north_america_airports)} North American airports as {airport_type}'
+        
         return HttpResponse(json.dumps({
             'success': True,
             'airports': north_america_airports,
-            'message': f'Added {len(north_america_airports)} North American airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
 
 
 def add_africa_airports(request):
-    """Add all major African airports as destinations"""
+    """Add all major African airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         africa_airports = [
             {'code': 'CAI', 'name': 'Cairo International Airport', 'city': 'Cairo, Egypt'},
             {'code': 'CPT', 'name': 'Cape Town International Airport', 'city': 'Cape Town, South Africa'},
@@ -511,18 +647,23 @@ def add_africa_airports(request):
             {'code': 'SEZ', 'name': 'Seychelles International Airport', 'city': 'Victoria, Seychelles'},
         ]
         
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(africa_airports)} African airports as {airport_type}'
+        
         return HttpResponse(json.dumps({
             'success': True,
             'airports': africa_airports,
-            'message': f'Added {len(africa_airports)} African airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
 
 
 def add_oceania_airports(request):
-    """Add all major Oceania airports as destinations"""
+    """Add all major Oceania airports as destinations or origins"""
     if request.method == 'POST':
+        mode = request.POST.get('mode', 'destinations')  # Default to destinations for backward compatibility
+        
         oceania_airports = [
             {'code': 'SYD', 'name': 'Kingsford Smith Airport', 'city': 'Sydney, Australia'},
             {'code': 'MEL', 'name': 'Melbourne Airport', 'city': 'Melbourne, Australia'},
@@ -546,10 +687,13 @@ def add_oceania_airports(request):
             {'code': 'VLI', 'name': 'Bauerfield International Airport', 'city': 'Port Vila, Vanuatu'},
         ]
         
+        airport_type = 'destinations' if mode == 'destinations' else 'origins'
+        message = f'Added {len(oceania_airports)} Oceania airports as {airport_type}'
+        
         return HttpResponse(json.dumps({
             'success': True,
             'airports': oceania_airports,
-            'message': f'Added {len(oceania_airports)} Oceania airports as destinations'
+            'message': message
         }), 'application/json')
     
     return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
