@@ -378,3 +378,178 @@ def create_country_summary(all_results):
         country['airports'].sort(key=lambda x: x['min_price'])
     
     return country_summary
+
+
+def add_europe_airports(request):
+    """Add all major European airports as destinations"""
+    if request.method == 'POST':
+        europe_airports = [
+            {'code': 'LHR', 'name': 'Heathrow Airport', 'city': 'London, United Kingdom'},
+            {'code': 'CDG', 'name': 'Charles de Gaulle Airport', 'city': 'Paris, France'},
+            {'code': 'FRA', 'name': 'Frankfurt Airport', 'city': 'Frankfurt, Germany'},
+            {'code': 'AMS', 'name': 'Amsterdam Airport Schiphol', 'city': 'Amsterdam, Netherlands'},
+            {'code': 'MAD', 'name': 'Adolfo Suárez Madrid–Barajas Airport', 'city': 'Madrid, Spain'},
+            {'code': 'BCN', 'name': 'Barcelona–El Prat Airport', 'city': 'Barcelona, Spain'},
+            {'code': 'FCO', 'name': 'Leonardo da Vinci International Airport', 'city': 'Rome, Italy'},
+            {'code': 'MUC', 'name': 'Munich Airport', 'city': 'Munich, Germany'},
+            {'code': 'ZUR', 'name': 'Zurich Airport', 'city': 'Zurich, Switzerland'},
+            {'code': 'VIE', 'name': 'Vienna International Airport', 'city': 'Vienna, Austria'},
+            {'code': 'CPH', 'name': 'Copenhagen Airport', 'city': 'Copenhagen, Denmark'},
+            {'code': 'ARN', 'name': 'Stockholm Arlanda Airport', 'city': 'Stockholm, Sweden'},
+            {'code': 'OSL', 'name': 'Oslo Airport', 'city': 'Oslo, Norway'},
+            {'code': 'HEL', 'name': 'Helsinki Airport', 'city': 'Helsinki, Finland'},
+            {'code': 'LIS', 'name': 'Humberto Delgado Airport', 'city': 'Lisbon, Portugal'},
+            {'code': 'WAW', 'name': 'Warsaw Chopin Airport', 'city': 'Warsaw, Poland'},
+            {'code': 'PRG', 'name': 'Václav Havel Airport Prague', 'city': 'Prague, Czech Republic'},
+            {'code': 'BUD', 'name': 'Budapest Ferenc Liszt International Airport', 'city': 'Budapest, Hungary'},
+            {'code': 'ATH', 'name': 'Athens International Airport', 'city': 'Athens, Greece'},
+            {'code': 'IST', 'name': 'Istanbul Airport', 'city': 'Istanbul, Turkey'},
+        ]
+        
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': europe_airports,
+            'message': f'Added {len(europe_airports)} European airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
+
+
+def add_asia_airports(request):
+    """Add all major Asian airports as destinations"""
+    if request.method == 'POST':
+        asia_airports = [
+            {'code': 'NRT', 'name': 'Narita International Airport', 'city': 'Tokyo, Japan'},
+            {'code': 'HND', 'name': 'Haneda Airport', 'city': 'Tokyo, Japan'},
+            {'code': 'ICN', 'name': 'Incheon International Airport', 'city': 'Seoul, South Korea'},
+            {'code': 'PEK', 'name': 'Beijing Capital International Airport', 'city': 'Beijing, China'},
+            {'code': 'PVG', 'name': 'Shanghai Pudong International Airport', 'city': 'Shanghai, China'},
+            {'code': 'HKG', 'name': 'Hong Kong International Airport', 'city': 'Hong Kong'},
+            {'code': 'SIN', 'name': 'Singapore Changi Airport', 'city': 'Singapore'},
+            {'code': 'BKK', 'name': 'Suvarnabhumi Airport', 'city': 'Bangkok, Thailand'},
+            {'code': 'KUL', 'name': 'Kuala Lumpur International Airport', 'city': 'Kuala Lumpur, Malaysia'},
+            {'code': 'CGK', 'name': 'Soekarno–Hatta International Airport', 'city': 'Jakarta, Indonesia'},
+            {'code': 'MNL', 'name': 'Ninoy Aquino International Airport', 'city': 'Manila, Philippines'},
+            {'code': 'TPE', 'name': 'Taiwan Taoyuan International Airport', 'city': 'Taipei, Taiwan'},
+            {'code': 'BOM', 'name': 'Chhatrapati Shivaji Maharaj International Airport', 'city': 'Mumbai, India'},
+            {'code': 'DEL', 'name': 'Indira Gandhi International Airport', 'city': 'New Delhi, India'},
+            {'code': 'DXB', 'name': 'Dubai International Airport', 'city': 'Dubai, UAE'},
+            {'code': 'DOH', 'name': 'Hamad International Airport', 'city': 'Doha, Qatar'},
+            {'code': 'KWI', 'name': 'Kuwait International Airport', 'city': 'Kuwait City, Kuwait'},
+            {'code': 'RUH', 'name': 'King Khalid International Airport', 'city': 'Riyadh, Saudi Arabia'},
+            {'code': 'TLV', 'name': 'Ben Gurion Airport', 'city': 'Tel Aviv, Israel'},
+            {'code': 'BAH', 'name': 'Bahrain International Airport', 'city': 'Manama, Bahrain'},
+        ]
+        
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': asia_airports,
+            'message': f'Added {len(asia_airports)} Asian airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
+
+
+def add_north_america_airports(request):
+    """Add all major North American airports as destinations"""
+    if request.method == 'POST':
+        north_america_airports = [
+            {'code': 'JFK', 'name': 'John F. Kennedy International Airport', 'city': 'New York, USA'},
+            {'code': 'LAX', 'name': 'Los Angeles International Airport', 'city': 'Los Angeles, USA'},
+            {'code': 'ORD', 'name': "O'Hare International Airport", 'city': 'Chicago, USA'},
+            {'code': 'DFW', 'name': 'Dallas/Fort Worth International Airport', 'city': 'Dallas, USA'},
+            {'code': 'ATL', 'name': 'Hartsfield-Jackson Atlanta International Airport', 'city': 'Atlanta, USA'},
+            {'code': 'MIA', 'name': 'Miami International Airport', 'city': 'Miami, USA'},
+            {'code': 'SEA', 'name': 'Seattle–Tacoma International Airport', 'city': 'Seattle, USA'},
+            {'code': 'SFO', 'name': 'San Francisco International Airport', 'city': 'San Francisco, USA'},
+            {'code': 'LAS', 'name': 'McCarran International Airport', 'city': 'Las Vegas, USA'},
+            {'code': 'YYZ', 'name': 'Toronto Pearson International Airport', 'city': 'Toronto, Canada'},
+            {'code': 'YVR', 'name': 'Vancouver International Airport', 'city': 'Vancouver, Canada'},
+            {'code': 'YUL', 'name': 'Montréal–Pierre Elliott Trudeau International Airport', 'city': 'Montreal, Canada'},
+            {'code': 'MEX', 'name': 'Mexico City International Airport', 'city': 'Mexico City, Mexico'},
+            {'code': 'CUN', 'name': 'Cancún International Airport', 'city': 'Cancún, Mexico'},
+            {'code': 'GDL', 'name': 'Miguel Hidalgo y Costilla Guadalajara International Airport', 'city': 'Guadalajara, Mexico'},
+            {'code': 'HAV', 'name': 'José Martí International Airport', 'city': 'Havana, Cuba'},
+            {'code': 'SJU', 'name': 'Luis Muñoz Marín International Airport', 'city': 'San Juan, Puerto Rico'},
+            {'code': 'GUA', 'name': 'La Aurora International Airport', 'city': 'Guatemala City, Guatemala'},
+            {'code': 'SJO', 'name': 'Juan Santamaría International Airport', 'city': 'San José, Costa Rica'},
+            {'code': 'PTY', 'name': 'Tocumen International Airport', 'city': 'Panama City, Panama'},
+        ]
+        
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': north_america_airports,
+            'message': f'Added {len(north_america_airports)} North American airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
+
+
+def add_africa_airports(request):
+    """Add all major African airports as destinations"""
+    if request.method == 'POST':
+        africa_airports = [
+            {'code': 'CAI', 'name': 'Cairo International Airport', 'city': 'Cairo, Egypt'},
+            {'code': 'CPT', 'name': 'Cape Town International Airport', 'city': 'Cape Town, South Africa'},
+            {'code': 'JNB', 'name': 'O.R. Tambo International Airport', 'city': 'Johannesburg, South Africa'},
+            {'code': 'LOS', 'name': 'Murtala Muhammed International Airport', 'city': 'Lagos, Nigeria'},
+            {'code': 'ABV', 'name': 'Nnamdi Azikiwe International Airport', 'city': 'Abuja, Nigeria'},
+            {'code': 'CMN', 'name': 'Mohammed V International Airport', 'city': 'Casablanca, Morocco'},
+            {'code': 'ALG', 'name': 'Houari Boumediene Airport', 'city': 'Algiers, Algeria'},
+            {'code': 'TUN', 'name': 'Tunis Carthage International Airport', 'city': 'Tunis, Tunisia'},
+            {'code': 'ACC', 'name': 'Kotoka International Airport', 'city': 'Accra, Ghana'},
+            {'code': 'ADD', 'name': 'Addis Ababa Bole International Airport', 'city': 'Addis Ababa, Ethiopia'},
+            {'code': 'NBO', 'name': 'Jomo Kenyatta International Airport', 'city': 'Nairobi, Kenya'},
+            {'code': 'DAR', 'name': 'Julius Nyerere International Airport', 'city': 'Dar es Salaam, Tanzania'},
+            {'code': 'EBB', 'name': 'Entebbe International Airport', 'city': 'Entebbe, Uganda'},
+            {'code': 'KGL', 'name': 'Kigali International Airport', 'city': 'Kigali, Rwanda'},
+            {'code': 'LUN', 'name': 'Kenneth Kaunda International Airport', 'city': 'Lusaka, Zambia'},
+            {'code': 'HRE', 'name': 'Robert Gabriel Mugabe International Airport', 'city': 'Harare, Zimbabwe'},
+            {'code': 'GBE', 'name': 'Sir Seretse Khama International Airport', 'city': 'Gaborone, Botswana'},
+            {'code': 'WDH', 'name': 'Hosea Kutako International Airport', 'city': 'Windhoek, Namibia'},
+            {'code': 'MRU', 'name': 'Sir Seewoosagur Ramgoolam International Airport', 'city': 'Mauritius'},
+            {'code': 'SEZ', 'name': 'Seychelles International Airport', 'city': 'Victoria, Seychelles'},
+        ]
+        
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': africa_airports,
+            'message': f'Added {len(africa_airports)} African airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
+
+
+def add_oceania_airports(request):
+    """Add all major Oceania airports as destinations"""
+    if request.method == 'POST':
+        oceania_airports = [
+            {'code': 'SYD', 'name': 'Kingsford Smith Airport', 'city': 'Sydney, Australia'},
+            {'code': 'MEL', 'name': 'Melbourne Airport', 'city': 'Melbourne, Australia'},
+            {'code': 'BNE', 'name': 'Brisbane Airport', 'city': 'Brisbane, Australia'},
+            {'code': 'PER', 'name': 'Perth Airport', 'city': 'Perth, Australia'},
+            {'code': 'ADL', 'name': 'Adelaide Airport', 'city': 'Adelaide, Australia'},
+            {'code': 'DRW', 'name': 'Darwin Airport', 'city': 'Darwin, Australia'},
+            {'code': 'HBA', 'name': 'Hobart Airport', 'city': 'Hobart, Australia'},
+            {'code': 'CNS', 'name': 'Cairns Airport', 'city': 'Cairns, Australia'},
+            {'code': 'OOL', 'name': 'Gold Coast Airport', 'city': 'Gold Coast, Australia'},
+            {'code': 'AKL', 'name': 'Auckland Airport', 'city': 'Auckland, New Zealand'},
+            {'code': 'CHC', 'name': 'Christchurch Airport', 'city': 'Christchurch, New Zealand'},
+            {'code': 'WLG', 'name': 'Wellington Airport', 'city': 'Wellington, New Zealand'},
+            {'code': 'ZQN', 'name': 'Queenstown Airport', 'city': 'Queenstown, New Zealand'},
+            {'code': 'NAN', 'name': 'Nadi International Airport', 'city': 'Nadi, Fiji'},
+            {'code': 'SUV', 'name': 'Nausori Airport', 'city': 'Suva, Fiji'},
+            {'code': 'PPT', 'name': 'Faa\'a International Airport', 'city': 'Tahiti, French Polynesia'},
+            {'code': 'HNL', 'name': 'Daniel K. Inouye International Airport', 'city': 'Honolulu, Hawaii, USA'},
+            {'code': 'GUM', 'name': 'Antonio B. Won Pat International Airport', 'city': 'Guam'},
+            {'code': 'NOU', 'name': 'La Tontouta International Airport', 'city': 'Nouméa, New Caledonia'},
+            {'code': 'VLI', 'name': 'Bauerfield International Airport', 'city': 'Port Vila, Vanuatu'},
+        ]
+        
+        return HttpResponse(json.dumps({
+            'success': True,
+            'airports': oceania_airports,
+            'message': f'Added {len(oceania_airports)} Oceania airports as destinations'
+        }), 'application/json')
+    
+    return HttpResponse(json.dumps({'success': False, 'message': 'Invalid request method'}), 'application/json')
