@@ -111,18 +111,18 @@
 }
 
 .nounderline {
-  text-decoration: none !important
+  text-decoration: none !important;
 }
 
 p.elegantstyle {
  color: #000000bf;
- font-size: 14px; !important
+ font-size: 14px !important;
  font-weight:lighter;
 }
 
 span.smallstyle {
  color: black;
- font-size: 15px; !important
+ font-size: 15px !important;
 }
 
 hr.newstyle {
@@ -147,7 +147,7 @@ hr.newstyle {
 }
 
 .ui-menu .ui-menu-item {
-	margin: none;
+        margin: 0;
 	padding-left: 15px;
     padding-right:10px;
 }
