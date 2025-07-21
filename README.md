@@ -111,6 +111,35 @@ python pricing/manage.py runserver
 
 Finally, open a browser and go to `http://127.0.0.1:8000/`
 
+## Fork Enhancements
+
+This fork extends the original flight price analysis application with several key enhancements focused on multi-destination and multi-origin search capabilities:
+
+### Multi-City Search Functionality
+- **Multiple Destinations Mode**: Search flights from one origin to multiple destinations simultaneously
+- **Multiple Origins Mode**: Search flights from multiple origins to one destination
+- **Dynamic UI**: Toggle between search modes with an intuitive interface that adapts based on your selection
+
+### Continental Airport Integration
+- **Quick Add by Continent**: One-click buttons to add all major airports from:
+  - 🌎 South America (37+ airports)
+  - 🇪🇺 Europe (20+ airports)  
+  - 🌏 Asia (20+ airports)
+  - 🌎 North America (20+ airports)
+  - 🌍 Africa (20+ airports)
+  - 🌏 Oceania (20+ airports)
+
+
+### Enhanced User Experience
+- **Currency Support**: Multiple currency options (USD, EUR) with proper price display
+
+### Advanced Results Display
+- **Country-Based Grouping**: Results organized by destination/origin countries with price ranges
+- **Price Comparison**: Clear visualization of cheapest flights across multiple destinations/origins
+- **Summary Views**: Comprehensive overviews when searching multiple locations
+
+These enhancements make the application particularly useful for travelers comparing flights across multiple destinations (like exploring South America) or finding the best departure city for a specific destination.
+
 ## License
 
 This library is released under the [MIT License](LICENSE).
