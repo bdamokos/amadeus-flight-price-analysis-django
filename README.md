@@ -111,6 +111,17 @@ python pricing/manage.py runserver
 
 Finally, open a browser and go to `http://127.0.0.1:8000/`
 
+## CLI (cheapest date search)
+
+There is a small Typer-based CLI in `cli/flight_price_cli` that reuses the same Amadeus env vars / `.env` as the Django app.
+
+Examples:
+
+```sh
+python -m cli.flight_price_cli search LHR JFK --trip one-way --start 2026-01-10 --end 2026-01-25
+python -m cli.flight_price_cli search LHR JFK --trip return --start 2026-01-10 --end 2026-01-25 --min-stay 3 --max-stay 10
+```
+
 ## Fork Enhancements
 
 This fork extends the original flight price analysis application with several key enhancements focused on multi-destination and multi-origin search capabilities:
@@ -148,4 +159,3 @@ This library is released under the [MIT License](LICENSE).
 
 You can find us on [StackOverflow](https://stackoverflow.com/questions/tagged/amadeus) or join our developer community on
 [Discord](https://discord.gg/cVrFBqx).
-
