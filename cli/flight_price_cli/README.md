@@ -38,6 +38,12 @@ Return trip cheapest combination (constrained by stay length):
 python -m cli.flight_price_cli search LHR JFK --trip return --start 2026-01-10 --end 2026-01-25 --min-stay 3 --max-stay 10
 ```
 
+Show runner-ups (top N) and stream results as they come in:
+
+```bash
+python -m cli.flight_price_cli search LHR JFK --trip return --start 2026-01-10 --end 2026-01-25 --top 10 --stream
+```
+
 Count how many requests would be made (no API calls):
 
 ```bash

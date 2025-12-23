@@ -111,6 +111,62 @@ def _maybe_sleep(throttle_seconds: float) -> None:
         time.sleep(throttle_seconds)
 
 
+def _iter_requests(
+    *,
+    trip: TripType,
+    departure_dates: Iterable[date],
+    end_date: date,
+    min_stay_days: int,
+    max_stay_days: int,
+) -> Iterable[tuple[date, Optional[date]]]:
+    if trip == TripType.one_way:
+        for departure_date in departure_dates:
+            yield departure_date, None
+        return
+
+    for departure_date in departure_dates:
+        earliest_return = departure_date + timedelta(days=min_stay_days)
+        latest_return = min(end_date, departure_date + timedelta(days=max_stay_days))
+        for return_date in _iter_dates(earliest_return, latest_return):
+            yield departure_date, return_date
+
+
+def _format_pair(departure_date: date, return_date: Optional[date]) -> str:
+    if return_date:
+        return f"{departure_date} / {return_date}"
+    return f"{departure_date}"
+
+
+def _update_top_n(
+    top: list[CheapestResult],
+    candidate: CheapestResult,
+    top_n: int,
+) -> bool:
+    if top_n <= 0:
+        return False
+    top.append(candidate)
+    top.sort(key=lambda r: r.total_price)
+    if len(top) > top_n:
+        del top[top_n:]
+    return candidate in top
+
+
+def _print_top_n(top: list[CheapestResult], *, top_n: int) -> None:
+    if not top or top_n <= 0:
+        return
+    typer.echo("")
+    typer.secho(f"Top {min(top_n, len(top))} results", bold=True)
+    header = f"{'#':>2}  {'Dates':<23}  {'Price':>12}  {'Offer':<10}"
+    typer.secho(header, dim=True)
+    for i, r in enumerate(top[:top_n], start=1):
+        offer_id = str(r.raw_offer.get("id", ""))[:10]
+        line = f"{i:>2}  {_format_pair(r.departure_date, r.return_date):<23}  {str(r.total_price):>12}  {offer_id:<10}"
+        if i == 1:
+            typer.secho(line, fg=typer.colors.GREEN, bold=True)
+        else:
+            typer.echo(line)
+
+
 def _run_search(
     *,
     origin: str,
@@ -130,6 +186,8 @@ def _run_search(
     json_output: bool,
     verbose: bool,
     dry_run: bool,
+    top_n: int,
+    stream: bool,
 ) -> None:
     _load_env()
     _require_amadeus_env()
@@ -166,7 +224,9 @@ def _run_search(
     client = Client()
 
     best: Optional[CheapestResult] = None
+    top: list[CheapestResult] = []
     completed = 0
+    errors = 0
 
     def consider_result(
         departure_date: date,
@@ -185,17 +245,32 @@ def _run_search(
             total_price=price,
             raw_offer=offer,
         )
-        if best is None or result.total_price < best.total_price:
-            best = result
-            if verbose:
-                typer.echo(
-                    f"New best: {result.total_price} {result.currency} "
-                    f"({result.departure_date}"
-                    + (f" → {result.return_date})" if result.return_date else ")")
-                )
+        is_new_best = best is None or result.total_price < best.total_price
+        made_top = _update_top_n(top, result, top_n)
 
-    for departure_date in departure_dates:
-        if trip == TripType.one_way:
+        if is_new_best:
+            best = result
+            typer.secho(
+                f"New best: {result.total_price} {result.currency} ({_format_pair(result.departure_date, result.return_date)})",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+        elif stream or (verbose and made_top):
+            typer.secho(
+                f"Found: {result.total_price} {result.currency} ({_format_pair(result.departure_date, result.return_date)})",
+                dim=not made_top,
+            )
+
+    label = "Searching dates"
+    requests_iter = _iter_requests(
+        trip=trip,
+        departure_dates=departure_dates,
+        end_date=end_date,
+        min_stay_days=min_stay_days,
+        max_stay_days=max_stay_days,
+    )
+    with typer.progressbar(requests_iter, length=planned_requests, label=label) as bar:
+        for departure_date, return_date in bar:
             kwargs: dict[str, Any] = dict(
                 originLocationCode=origin,
                 destinationLocationCode=destination,
@@ -204,32 +279,8 @@ def _run_search(
                 currencyCode=currency,
                 max=max_offers,
             )
-            if nonstop:
-                kwargs["nonStop"] = "true"
-            try:
-                price, offer = _cheapest_offer(client, **kwargs)
-                completed += 1
-                if price is not None and offer is not None:
-                    consider_result(departure_date, None, price, offer)
-            except ResponseError as e:
-                completed += 1
-                if verbose:
-                    typer.echo(f"API error for {departure_date}: {e}", err=True)
-            _maybe_sleep(throttle_seconds)
-            continue
-
-        earliest_return = departure_date + timedelta(days=min_stay_days)
-        latest_return = min(end_date, departure_date + timedelta(days=max_stay_days))
-        for return_date in _iter_dates(earliest_return, latest_return):
-            kwargs = dict(
-                originLocationCode=origin,
-                destinationLocationCode=destination,
-                departureDate=departure_date.isoformat(),
-                returnDate=return_date.isoformat(),
-                adults=adults,
-                currencyCode=currency,
-                max=max_offers,
-            )
+            if return_date is not None:
+                kwargs["returnDate"] = return_date.isoformat()
             if nonstop:
                 kwargs["nonStop"] = "true"
             try:
@@ -239,8 +290,13 @@ def _run_search(
                     consider_result(departure_date, return_date, price, offer)
             except ResponseError as e:
                 completed += 1
+                errors += 1
                 if verbose:
-                    typer.echo(f"API error for {departure_date} / {return_date}: {e}", err=True)
+                    typer.secho(
+                        f"API error for {_format_pair(departure_date, return_date)}: {e}",
+                        err=True,
+                        fg=typer.colors.RED,
+                    )
             _maybe_sleep(throttle_seconds)
 
     if best is None:
@@ -252,7 +308,7 @@ def _run_search(
                     "destination": destination,
                     "trip": trip.value,
                     "currency": currency,
-                    "requests": {"planned": planned_requests, "completed": completed},
+                    "requests": {"planned": planned_requests, "completed": completed, "errors": errors},
                 },
                 indent=2,
             )
@@ -270,25 +326,36 @@ def _run_search(
         "departure_date": best.departure_date.isoformat(),
         "return_date": best.return_date.isoformat() if best.return_date else None,
         "total_price": str(best.total_price),
-        "requests": {"planned": planned_requests, "completed": completed},
+        "requests": {"planned": planned_requests, "completed": completed, "errors": errors},
     }
+    if top_n > 0:
+        payload["top"] = [
+            {
+                "departure_date": r.departure_date.isoformat(),
+                "return_date": r.return_date.isoformat() if r.return_date else None,
+                "total_price": str(r.total_price),
+                "offer_id": r.raw_offer.get("id"),
+            }
+            for r in top[:top_n]
+        ]
 
     if json_output:
         typer.echo(json.dumps(payload, indent=2))
     else:
+        _print_top_n(top, top_n=top_n)
         if best.return_date:
             typer.echo(
                 f"Best return: {best.origin}->{best.destination} "
                 f"{best.departure_date} / {best.return_date} "
                 f"= {best.total_price} {best.currency} "
-                f"({completed}/{planned_requests} requests)"
+                f"({completed}/{planned_requests} requests, {errors} errors)"
             )
         else:
             typer.echo(
                 f"Best one-way: {best.origin}->{best.destination} "
                 f"{best.departure_date} "
                 f"= {best.total_price} {best.currency} "
-                f"({completed}/{planned_requests} requests)"
+                f"({completed}/{planned_requests} requests, {errors} errors)"
             )
 
 
@@ -304,24 +371,38 @@ def main(ctx: typer.Context) -> None:
     end_date = typer.prompt("End date (YYYY-MM-DD)", value_proc=_parse_date)
     trip = typer.prompt("Trip type (return/one-way)", default="return", value_proc=_parse_trip)
 
+    min_stay = 1
+    max_stay = 14
+    if trip == TripType.return_trip:
+        min_stay = typer.prompt("Minimum stay (days)", default=3, value_proc=int)
+        max_stay = typer.prompt("Maximum stay (days)", default=10, value_proc=int)
+
+    adults = typer.prompt("Adults", default=1, value_proc=int)
+    currency = typer.prompt("Currency", default="USD").strip().upper()
+    nonstop = typer.confirm("Non-stop only?", default=False)
+    top_n = typer.prompt("Show top N results", default=5, value_proc=int)
+    stream = typer.confirm("Print results as they come in?", default=False)
+
     _run_search(
         origin=origin,
         destination=destination,
         start_date=start_date,
         end_date=end_date,
         trip=trip,
-        min_stay_days=1,
-        max_stay_days=14,
-        adults=1,
-        currency="USD",
-        nonstop=False,
+        min_stay_days=min_stay,
+        max_stay_days=max_stay,
+        adults=adults,
+        currency=currency,
+        nonstop=nonstop,
         max_offers=10,
         throttle_seconds=0.0,
         max_requests=200,
         force=False,
         json_output=False,
-        verbose=False,
+        verbose=True,
         dry_run=False,
+        top_n=top_n,
+        stream=stream,
     )
 
 
@@ -342,7 +423,9 @@ def search(
     max_requests: int = typer.Option(200, "--max-requests", min=1, help="Hard cap on API requests."),
     force: bool = typer.Option(False, "--force", help="Allow exceeding --max-requests."),
     json_output: bool = typer.Option(False, "--json", help="Output result as JSON."),
-    verbose: bool = typer.Option(False, "--verbose"),
+    verbose: bool = typer.Option(False, "--verbose", help="Print notable intermediate results."),
+    stream: bool = typer.Option(False, "--stream", help="Print each result as it is fetched (can be noisy)."),
+    top_n: int = typer.Option(5, "--top", min=0, help="Show the top N results (runner-ups)."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print planned request count, do not call the API."),
 ) -> None:
     """
@@ -374,4 +457,6 @@ def search(
         json_output=json_output,
         verbose=verbose,
         dry_run=dry_run,
+        top_n=top_n,
+        stream=stream,
     )
