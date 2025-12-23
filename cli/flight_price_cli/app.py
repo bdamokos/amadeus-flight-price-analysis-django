@@ -13,6 +13,20 @@ from typing import Any, Iterable, Optional
 import typer
 from amadeus import Client, ResponseError
 from dotenv import load_dotenv
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.style import Style
+from rich.table import Table
+
+console = Console()
 
 
 class TripType(str, Enum):
@@ -154,17 +168,30 @@ def _update_top_n(
 def _print_top_n(top: list[CheapestResult], *, top_n: int) -> None:
     if not top or top_n <= 0:
         return
-    typer.echo("")
-    typer.secho(f"Top {min(top_n, len(top))} results", bold=True)
-    header = f"{'#':>2}  {'Dates':<23}  {'Price':>12}  {'Offer':<10}"
-    typer.secho(header, dim=True)
+    
+    table = Table(title=f"Top {min(top_n, len(top))} results", show_header=True, header_style="bold magenta")
+    table.add_column("#", justify="right", style="cyan")
+    table.add_column("Dates", style="white")
+    table.add_column("Price", justify="right", style="green")
+    table.add_column("Offer ID", justify="right")
+
     for i, r in enumerate(top[:top_n], start=1):
-        offer_id = str(r.raw_offer.get("id", ""))[:10]
-        line = f"{i:>2}  {_format_pair(r.departure_date, r.return_date):<23}  {str(r.total_price):>12}  {offer_id:<10}"
-        if i == 1:
-            typer.secho(line, fg=typer.colors.GREEN, bold=True)
-        else:
-            typer.echo(line)
+        offer_id = str(r.raw_offer.get("id", ""))
+        dates = _format_pair(r.departure_date, r.return_date)
+        price_str = f"{r.total_price} {r.currency}"
+        
+        style = Style(bgcolor="dark_green", bold=True) if i == 1 else None
+        
+        table.add_row(
+            str(i),
+            dates,
+            price_str,
+            offer_id,
+            style=style
+        )
+    
+    console.print()
+    console.print(table)
 
 
 def _run_search(
@@ -250,15 +277,15 @@ def _run_search(
 
         if is_new_best:
             best = result
-            typer.secho(
-                f"New best: {result.total_price} {result.currency} ({_format_pair(result.departure_date, result.return_date)})",
-                fg=typer.colors.GREEN,
-                bold=True,
+            console.print(
+                f"[bold green]New best:[/bold green] {result.total_price} {result.currency} "
+                f"({_format_pair(result.departure_date, result.return_date)})"
             )
         elif stream or (verbose and made_top):
-            typer.secho(
+            style = "dim" if not made_top else ""
+            console.print(
                 f"Found: {result.total_price} {result.currency} ({_format_pair(result.departure_date, result.return_date)})",
-                dim=not made_top,
+                style=style,
             )
 
     label = "Searching dates"
@@ -269,8 +296,18 @@ def _run_search(
         min_stay_days=min_stay_days,
         max_stay_days=max_stay_days,
     )
-    with typer.progressbar(requests_iter, length=planned_requests, label=label) as bar:
-        for departure_date, return_date in bar:
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        task_id = progress.add_task(label, total=planned_requests)
+        
+        for departure_date, return_date in requests_iter:
             kwargs: dict[str, Any] = dict(
                 originLocationCode=origin,
                 destinationLocationCode=destination,
@@ -292,12 +329,11 @@ def _run_search(
                 completed += 1
                 errors += 1
                 if verbose:
-                    typer.secho(
-                        f"API error for {_format_pair(departure_date, return_date)}: {e}",
-                        err=True,
-                        fg=typer.colors.RED,
+                    console.print(
+                        f"[red]API error for {_format_pair(departure_date, return_date)}: {e}[/red]",
                     )
             _maybe_sleep(throttle_seconds)
+            progress.update(task_id, advance=1)
 
     if best is None:
         typer.echo(
@@ -343,20 +379,24 @@ def _run_search(
         typer.echo(json.dumps(payload, indent=2))
     else:
         _print_top_n(top, top_n=top_n)
+        
+        result_text = ""
         if best.return_date:
-            typer.echo(
-                f"Best return: {best.origin}->{best.destination} "
-                f"{best.departure_date} / {best.return_date} "
-                f"= {best.total_price} {best.currency} "
+            result_text = (
+                f"Best return: {best.origin}->{best.destination}\n"
+                f"{best.departure_date} / {best.return_date}\n"
+                f"[bold green]= {best.total_price} {best.currency}[/bold green]\n"
                 f"({completed}/{planned_requests} requests, {errors} errors)"
             )
         else:
-            typer.echo(
-                f"Best one-way: {best.origin}->{best.destination} "
-                f"{best.departure_date} "
-                f"= {best.total_price} {best.currency} "
+            result_text = (
+                f"Best one-way: {best.origin}->{best.destination}\n"
+                f"{best.departure_date}\n"
+                f"[bold green]= {best.total_price} {best.currency}[/bold green]\n"
                 f"({completed}/{planned_requests} requests, {errors} errors)"
             )
+        
+        console.print(Panel(result_text, title="Search Complete", border_style="green", expand=False))
 
 
 @app.callback()
