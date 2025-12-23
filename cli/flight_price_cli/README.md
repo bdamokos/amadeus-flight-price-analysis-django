@@ -26,6 +26,8 @@ Fully interactive (prompts for everything):
 python -m cli.flight_price_cli
 ```
 
+The CLI remembers your last inputs in `.flight_price_cli_state.json` (repo root) and uses them as the next prompt defaults.
+
 One-way cheapest day in a range:
 
 ```bash
@@ -54,4 +56,10 @@ If you omit required values, the `search` command will prompt for them too:
 
 ```bash
 python -m cli.flight_price_cli search
+```
+
+Disable saving defaults:
+
+```bash
+python -m cli.flight_price_cli search LHR JFK --start 2026-01-10 --end 2026-01-25 --no-remember
 ```

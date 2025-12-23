@@ -60,6 +60,32 @@ def _load_env() -> None:
     load_dotenv(repo_root / ".env", override=False)
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _state_path() -> Path:
+    return _repo_root() / ".flight_price_cli_state.json"
+
+
+def _load_state() -> dict[str, Any]:
+    path = _state_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        return {}
+
+
+def _save_state(state: dict[str, Any]) -> None:
+    path = _state_path()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
 def _require_amadeus_env() -> None:
     missing = [k for k in ("AMADEUS_CLIENT_ID", "AMADEUS_CLIENT_SECRET") if not os.getenv(k)]
     if missing:
@@ -215,6 +241,7 @@ def _run_search(
     dry_run: bool,
     top_n: int,
     stream: bool,
+    remember: bool,
 ) -> None:
     _load_env()
     _require_amadeus_env()
@@ -242,6 +269,24 @@ def _run_search(
         raise typer.BadParameter(
             f"Planned {planned_requests} API requests (> {max_requests}). "
             "Narrow the date range / stay window, raise --max-requests, or pass --force."
+        )
+
+    if remember:
+        _save_state(
+            {
+                "origin": origin,
+                "destination": destination,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "trip": trip.value,
+                "min_stay_days": min_stay_days,
+                "max_stay_days": max_stay_days,
+                "adults": adults,
+                "currency": currency,
+                "nonstop": nonstop,
+                "top_n": top_n,
+                "stream": stream,
+            }
         )
 
     if dry_run:
@@ -405,23 +450,49 @@ def main(ctx: typer.Context) -> None:
     if ctx.invoked_subcommand is not None:
         return
 
-    origin = typer.prompt("Origin IATA code", value_proc=_parse_iata)
-    destination = typer.prompt("Destination IATA code", value_proc=_parse_iata)
-    start_date = typer.prompt("Start date (YYYY-MM-DD)", value_proc=_parse_date)
-    end_date = typer.prompt("End date (YYYY-MM-DD)", value_proc=_parse_date)
-    trip = typer.prompt("Trip type (return/one-way)", default="return", value_proc=_parse_trip)
+    state = _load_state()
+
+    origin_default = state.get("origin")
+    destination_default = state.get("destination")
+    start_default = state.get("start_date")
+    end_default = state.get("end_date")
+    trip_default = state.get("trip", "return")
+
+    origin = (
+        typer.prompt("Origin IATA code", default=origin_default, value_proc=_parse_iata)
+        if origin_default
+        else typer.prompt("Origin IATA code", value_proc=_parse_iata)
+    )
+    destination = (
+        typer.prompt("Destination IATA code", default=destination_default, value_proc=_parse_iata)
+        if destination_default
+        else typer.prompt("Destination IATA code", value_proc=_parse_iata)
+    )
+    start_date = (
+        typer.prompt("Start date (YYYY-MM-DD)", default=start_default, value_proc=_parse_date)
+        if start_default
+        else typer.prompt("Start date (YYYY-MM-DD)", value_proc=_parse_date)
+    )
+    end_date = (
+        typer.prompt("End date (YYYY-MM-DD)", default=end_default, value_proc=_parse_date)
+        if end_default
+        else typer.prompt("End date (YYYY-MM-DD)", value_proc=_parse_date)
+    )
+    trip = typer.prompt("Trip type (return/one-way)", default=trip_default, value_proc=_parse_trip)
 
     min_stay = 1
     max_stay = 14
     if trip == TripType.return_trip:
-        min_stay = typer.prompt("Minimum stay (days)", default=3, value_proc=int)
-        max_stay = typer.prompt("Maximum stay (days)", default=10, value_proc=int)
+        min_stay = int(state.get("min_stay_days", 3))
+        max_stay = int(state.get("max_stay_days", 10))
+        min_stay = typer.prompt("Minimum stay (days)", default=min_stay, value_proc=int)
+        max_stay = typer.prompt("Maximum stay (days)", default=max_stay, value_proc=int)
 
-    adults = typer.prompt("Adults", default=1, value_proc=int)
-    currency = typer.prompt("Currency", default="USD").strip().upper()
-    nonstop = typer.confirm("Non-stop only?", default=False)
-    top_n = typer.prompt("Show top N results", default=5, value_proc=int)
-    stream = typer.confirm("Print results as they come in?", default=False)
+    adults = typer.prompt("Adults", default=int(state.get("adults", 1)), value_proc=int)
+    currency = typer.prompt("Currency", default=str(state.get("currency", "USD"))).strip().upper()
+    nonstop = typer.confirm("Non-stop only?", default=bool(state.get("nonstop", False)))
+    top_n = typer.prompt("Show top N results", default=int(state.get("top_n", 5)), value_proc=int)
+    stream = typer.confirm("Print results as they come in?", default=bool(state.get("stream", False)))
 
     _run_search(
         origin=origin,
@@ -443,6 +514,7 @@ def main(ctx: typer.Context) -> None:
         dry_run=False,
         top_n=top_n,
         stream=stream,
+        remember=True,
     )
 
 
@@ -466,18 +538,35 @@ def search(
     verbose: bool = typer.Option(False, "--verbose", help="Print notable intermediate results."),
     stream: bool = typer.Option(False, "--stream", help="Print each result as it is fetched (can be noisy)."),
     top_n: int = typer.Option(5, "--top", min=0, help="Show the top N results (runner-ups)."),
+    remember: bool = typer.Option(True, "--remember/--no-remember", help="Remember these choices as defaults."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print planned request count, do not call the API."),
 ) -> None:
     """
     Searches all dates in [start, end] to find the cheapest one-way date or cheapest departure/return combo.
     Any missing required fields will be prompted for interactively.
     """
-    origin_code = _parse_iata(origin) if origin else typer.prompt("Origin IATA code", value_proc=_parse_iata)
-    destination_code = (
-        _parse_iata(destination) if destination else typer.prompt("Destination IATA code", value_proc=_parse_iata)
+    state = _load_state()
+
+    origin_code = (
+        _parse_iata(origin)
+        if origin
+        else typer.prompt("Origin IATA code", default=state.get("origin"), value_proc=_parse_iata)
     )
-    start_date = _parse_date(start) if start else typer.prompt("Start date (YYYY-MM-DD)", value_proc=_parse_date)
-    end_date = _parse_date(end) if end else typer.prompt("End date (YYYY-MM-DD)", value_proc=_parse_date)
+    destination_code = (
+        _parse_iata(destination)
+        if destination
+        else typer.prompt("Destination IATA code", default=state.get("destination"), value_proc=_parse_iata)
+    )
+    start_date = (
+        _parse_date(start)
+        if start
+        else typer.prompt("Start date (YYYY-MM-DD)", default=state.get("start_date"), value_proc=_parse_date)
+    )
+    end_date = (
+        _parse_date(end)
+        if end
+        else typer.prompt("End date (YYYY-MM-DD)", default=state.get("end_date"), value_proc=_parse_date)
+    )
 
     _run_search(
         origin=origin_code,
@@ -499,4 +588,5 @@ def search(
         dry_run=dry_run,
         top_n=top_n,
         stream=stream,
+        remember=remember,
     )

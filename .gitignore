@@ -135,3 +135,4 @@ dmypy.json
 .pyre/
 
 .DS_Store
+.flight_price_cli_state.json
